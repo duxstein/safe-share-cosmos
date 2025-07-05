@@ -1,13 +1,128 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import React, { useState } from 'react';
+import { Web3Provider } from '@/contexts/Web3Context';
+import WalletConnection from '@/components/WalletConnection';
+import FileUpload from '@/components/FileUpload';
+import FileManager from '@/components/FileManager';
+import { IPFSFile } from '@/services/ipfsService';
+import { Shield, Globe, Lock } from 'lucide-react';
 
 const Index = () => {
+  const [uploadedFiles, setUploadedFiles] = useState<IPFSFile[]>([]);
+
+  const handleFileUploaded = (file: IPFSFile) => {
+    setUploadedFiles(prev => [file, ...prev]);
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <Web3Provider>
+      <div className="min-h-screen">
+        {/* Header */}
+        <header className="border-b border-white/10 bg-black/20 backdrop-blur-sm">
+          <div className="container mx-auto px-4 py-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg cosmic-gradient">
+                  <Shield className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
+                    SecureShare
+                  </h1>
+                  <p className="text-sm text-muted-foreground">Decentralized File Sharing</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <Globe className="h-4 w-4 text-blue-400" />
+                  <span>IPFS</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Lock className="h-4 w-4 text-purple-400" />
+                  <span>Ethereum</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <main className="container mx-auto px-4 py-8">
+          <div className="max-w-6xl mx-auto space-y-8">
+            {/* Hero Section */}
+            <div className="text-center space-y-4 mb-12">
+              <h2 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
+                Secure. Decentralized. Yours.
+              </h2>
+              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                Share files securely using IPFS and Ethereum smart contracts. 
+                Your data, your control, your ownership.
+              </p>
+            </div>
+
+            {/* Wallet Connection */}
+            <div className="flex justify-center">
+              <div className="w-full max-w-md">
+                <WalletConnection />
+              </div>
+            </div>
+
+            {/* File Operations */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div>
+                <FileUpload onFileUploaded={handleFileUploaded} />
+              </div>
+              <div>
+                <FileManager files={uploadedFiles} />
+              </div>
+            </div>
+
+            {/* Features */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16">
+              <div className="glass-card p-6 text-center">
+                <div className="p-3 rounded-full bg-purple-500/20 w-fit mx-auto mb-4">
+                  <Shield className="h-6 w-6 text-purple-400" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Secure Access</h3>
+                <p className="text-sm text-muted-foreground">
+                  Smart contract-based authentication ensures only authorized users can access your files.
+                </p>
+              </div>
+
+              <div className="glass-card p-6 text-center">
+                <div className="p-3 rounded-full bg-blue-500/20 w-fit mx-auto mb-4">
+                  <Globe className="h-6 w-6 text-blue-400" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Decentralized Storage</h3>
+                <p className="text-sm text-muted-foreground">
+                  Files are stored on IPFS, ensuring they're always available and censorship-resistant.
+                </p>
+              </div>
+
+              <div className="glass-card p-6 text-center">
+                <div className="p-3 rounded-full bg-cyan-500/20 w-fit mx-auto mb-4">
+                  <Lock className="h-6 w-6 text-cyan-400" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">True Ownership</h3>
+                <p className="text-sm text-muted-foreground">
+                  Your wallet, your files. No central authority can access or remove your data.
+                </p>
+              </div>
+            </div>
+          </div>
+        </main>
+
+        {/* Footer */}
+        <footer className="border-t border-white/10 bg-black/20 backdrop-blur-sm mt-16">
+          <div className="container mx-auto px-4 py-6">
+            <div className="text-center text-sm text-muted-foreground">
+              <p>Built with React, IPFS, and Ethereum • Powered by Web3</p>
+            </div>
+          </div>
+        </footer>
       </div>
-    </div>
+    </Web3Provider>
   );
 };
 
