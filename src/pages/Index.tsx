@@ -4,6 +4,7 @@ import { Web3Provider } from '@/contexts/Web3Context';
 import WalletConnection from '@/components/WalletConnection';
 import FileUpload from '@/components/FileUpload';
 import FileManager from '@/components/FileManager';
+import IPFSSettings from '@/components/IPFSSettings';
 import { IPFSFile } from '@/services/ipfsService';
 import { Shield, Globe, Lock } from 'lucide-react';
 
@@ -65,6 +66,13 @@ const Index = () => {
             <div className="flex justify-center">
               <div className="w-full max-w-md">
                 <WalletConnection />
+              </div>
+            </div>
+
+            {/* IPFS Configuration */}
+            <div className="flex justify-center">
+              <div className="w-full max-w-md">
+                <IPFSSettings />
               </div>
             </div>
 
