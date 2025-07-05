@@ -1,8 +1,7 @@
 
 import { create } from 'ipfs-http-client';
 
-// Using Infura's IPFS service (you can replace with your own IPFS node)
-const IPFS_API_URL = 'https://ipfs.infura.io:5001/api/v0';
+// Using a public IPFS gateway that doesn't require authentication
 const IPFS_GATEWAY = 'https://ipfs.io/ipfs/';
 
 export interface IPFSFile {
@@ -17,10 +16,10 @@ class IPFSService {
   private client: any;
 
   constructor() {
-    // Initialize IPFS client
+    // Initialize IPFS client with a public node
     this.client = create({
-      host: 'ipfs.infura.io',
-      port: 5001,
+      host: 'node0.preload.ipfs.io',
+      port: 443,
       protocol: 'https',
     });
   }
