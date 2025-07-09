@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import Web3 from 'web3';
 import detectEthereumProvider from '@metamask/detect-provider';
@@ -21,20 +22,45 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Use ref to track if a connection is already in progress
-  const isConnecting = useRef(false);
+  // Enhanced protection against concurrent requests
+  const connectionPromise = useRef<Promise<void> | null>(null);
 
   const connectWallet = async () => {
-    // Prevent multiple concurrent connection attempts
-    if (isConnecting.current || isLoading) {
-      console.log('Connection already in progress, ignoring request');
+    // If there's already a connection in progress, wait for it
+    if (connectionPromise.current) {
+      console.log('Connection already in progress, waiting for completion...');
+      try {
+        await connectionPromise.current;
+      } catch (error) {
+        // Connection failed, we'll try again
+        console.log('Previous connection failed, trying again');
+      }
       return;
     }
 
+    // If already connected or loading, don't proceed
+    if (isConnected || isLoading) {
+      console.log('Already connected or loading, ignoring request');
+      return;
+    }
+
+    // Create a new connection promise
+    connectionPromise.current = performConnection();
+    
     try {
-      isConnecting.current = true;
+      await connectionPromise.current;
+    } finally {
+      // Clear the promise when done (success or failure)
+      connectionPromise.current = null;
+    }
+  };
+
+  const performConnection = async (): Promise<void> => {
+    try {
       setIsLoading(true);
       setError(null);
+
+      console.log('Starting wallet connection...');
 
       const provider = await detectEthereumProvider();
       
@@ -44,9 +70,10 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const web3Instance = new Web3(provider as any);
       
-      // Use a small delay to ensure MetaMask is ready
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Add a longer delay to ensure MetaMask is fully ready
+      await new Promise(resolve => setTimeout(resolve, 200));
       
+      console.log('Requesting accounts from MetaMask...');
       const accounts = await web3Instance.eth.requestAccounts();
       
       if (accounts.length === 0) {
@@ -65,10 +92,19 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
 
     } catch (err: any) {
       console.error('Connection error:', err);
-      setError(err.message);
+      
+      // Handle the specific MetaMask error
+      if (err.message && err.message.includes('Already processing eth_requestAccounts')) {
+        setError('MetaMask is busy. Please wait a moment and try again.');
+      } else if (err.code === 4001) {
+        setError('Connection cancelled by user.');
+      } else if (err.code === -32002) {
+        setError('MetaMask is already processing a request. Please wait.');
+      } else {
+        setError(err.message || 'Failed to connect wallet');
+      }
     } finally {
       setIsLoading(false);
-      isConnecting.current = false;
     }
   };
 
@@ -79,7 +115,9 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null);
     localStorage.removeItem('walletConnected');
     localStorage.removeItem('walletAccount');
-    isConnecting.current = false;
+    
+    // Clear any pending connection attempts
+    connectionPromise.current = null;
   };
 
   // Auto-connect on page load if previously connected
@@ -88,7 +126,7 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
       const wasConnected = localStorage.getItem('walletConnected');
       const savedAccount = localStorage.getItem('walletAccount');
       
-      if (wasConnected && savedAccount && !isConnected && !isConnecting.current) {
+      if (wasConnected && savedAccount && !isConnected && !connectionPromise.current) {
         console.log('Attempting auto-connect...');
         
         try {
@@ -126,6 +164,7 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (window.ethereum) {
       const handleAccountsChanged = (accounts: string[]) => {
+        console.log('Account changed:', accounts);
         if (accounts.length === 0) {
           disconnectWallet();
         } else if (accounts[0] !== account) {
@@ -134,11 +173,18 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       };
 
+      const handleChainChanged = () => {
+        console.log('Chain changed, reloading...');
+        window.location.reload();
+      };
+
       window.ethereum.on('accountsChanged', handleAccountsChanged);
+      window.ethereum.on('chainChanged', handleChainChanged);
 
       return () => {
         if (window.ethereum) {
           window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+          window.ethereum.removeListener('chainChanged', handleChainChanged);
         }
       };
     }
