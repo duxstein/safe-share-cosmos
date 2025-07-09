@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import Web3 from 'web3';
 import detectEthereumProvider from '@metamask/detect-provider';
@@ -138,7 +137,9 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
       window.ethereum.on('accountsChanged', handleAccountsChanged);
 
       return () => {
-        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+        if (window.ethereum) {
+          window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+        }
       };
     }
   }, [account]);
