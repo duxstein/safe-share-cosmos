@@ -1,7 +1,6 @@
-
 import Web3 from 'web3';
 
-// Simple file sharing contract ABI
+// Enhanced file sharing contract ABI with blacklist/whitelist features
 const FILE_SHARING_ABI = [
   {
     "inputs": [{"name": "_fileHash", "type": "string"}],
@@ -26,6 +25,41 @@ const FILE_SHARING_ABI = [
   },
   {
     "inputs": [{"name": "_fileHash", "type": "string"}, {"name": "_user", "type": "address"}],
+    "name": "addToBlacklist",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "_fileHash", "type": "string"}, {"name": "_user", "type": "address"}],
+    "name": "removeFromBlacklist",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "_fileHash", "type": "string"}, {"name": "_user", "type": "address"}],
+    "name": "addToWhitelist",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "_fileHash", "type": "string"}, {"name": "_user", "type": "address"}],
+    "name": "removeFromWhitelist",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "_fileHash", "type": "string"}],
+    "name": "toggleWhitelistMode",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "_fileHash", "type": "string"}, {"name": "_user", "type": "address"}],
     "name": "hasAccess",
     "outputs": [{"name": "", "type": "bool"}],
     "stateMutability": "view",
@@ -44,16 +78,54 @@ const FILE_SHARING_ABI = [
     "outputs": [{"name": "", "type": "address[]"}],
     "stateMutability": "view",
     "type": "function"
+  },
+  {
+    "inputs": [{"name": "_fileHash", "type": "string"}],
+    "name": "getBlacklistedUsers",
+    "outputs": [{"name": "", "type": "address[]"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "_fileHash", "type": "string"}],
+    "name": "getWhitelistedUsers",
+    "outputs": [{"name": "", "type": "address[]"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "_fileHash", "type": "string"}],
+    "name": "isWhitelistModeEnabled",
+    "outputs": [{"name": "", "type": "bool"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "_fileHash", "type": "string"}, {"name": "_user", "type": "address"}],
+    "name": "isUserBlacklisted",
+    "outputs": [{"name": "", "type": "bool"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "_fileHash", "type": "string"}, {"name": "_user", "type": "address"}],
+    "name": "isUserWhitelisted",
+    "outputs": [{"name": "", "type": "bool"}],
+    "stateMutability": "view",
+    "type": "function"
   }
 ];
 
-// You'll need to deploy this contract and update this address
+// You'll need to deploy the updated contract and update this address
 const CONTRACT_ADDRESS = '0x742d35Cc6634C0532925a3b8D7389Cd64E6b1A8D'; // Placeholder address
 
 export interface FilePermission {
   fileHash: string;
   owner: string;
   authorizedUsers: string[];
+  blacklistedUsers: string[];
+  whitelistedUsers: string[];
+  isWhitelistMode: boolean;
 }
 
 class ContractService {
@@ -167,6 +239,181 @@ class ContractService {
     } catch (error) {
       console.error('Error getting authorized users:', error);
       return [];
+    }
+  }
+
+  async addToBlacklist(fileHash: string, userAddress: string, account: string): Promise<boolean> {
+    if (!this.contract || !this.web3) {
+      throw new Error('Contract not initialized');
+    }
+
+    try {
+      const gasEstimate = await this.contract.methods.addToBlacklist(fileHash, userAddress).estimateGas({ from: account });
+      
+      await this.contract.methods.addToBlacklist(fileHash, userAddress).send({
+        from: account,
+        gas: gasEstimate,
+      });
+
+      console.log('User blacklisted:', userAddress, 'for file:', fileHash);
+      return true;
+    } catch (error) {
+      console.error('Error blacklisting user:', error);
+      throw error;
+    }
+  }
+
+  async removeFromBlacklist(fileHash: string, userAddress: string, account: string): Promise<boolean> {
+    if (!this.contract || !this.web3) {
+      throw new Error('Contract not initialized');
+    }
+
+    try {
+      const gasEstimate = await this.contract.methods.removeFromBlacklist(fileHash, userAddress).estimateGas({ from: account });
+      
+      await this.contract.methods.removeFromBlacklist(fileHash, userAddress).send({
+        from: account,
+        gas: gasEstimate,
+      });
+
+      console.log('User removed from blacklist:', userAddress, 'for file:', fileHash);
+      return true;
+    } catch (error) {
+      console.error('Error removing user from blacklist:', error);
+      throw error;
+    }
+  }
+
+  async addToWhitelist(fileHash: string, userAddress: string, account: string): Promise<boolean> {
+    if (!this.contract || !this.web3) {
+      throw new Error('Contract not initialized');
+    }
+
+    try {
+      const gasEstimate = await this.contract.methods.addToWhitelist(fileHash, userAddress).estimateGas({ from: account });
+      
+      await this.contract.methods.addToWhitelist(fileHash, userAddress).send({
+        from: account,
+        gas: gasEstimate,
+      });
+
+      console.log('User whitelisted:', userAddress, 'for file:', fileHash);
+      return true;
+    } catch (error) {
+      console.error('Error whitelisting user:', error);
+      throw error;
+    }
+  }
+
+  async removeFromWhitelist(fileHash: string, userAddress: string, account: string): Promise<boolean> {
+    if (!this.contract || !this.web3) {
+      throw new Error('Contract not initialized');
+    }
+
+    try {
+      const gasEstimate = await this.contract.methods.removeFromWhitelist(fileHash, userAddress).estimateGas({ from: account });
+      
+      await this.contract.methods.removeFromWhitelist(fileHash, userAddress).send({
+        from: account,
+        gas: gasEstimate,
+      });
+
+      console.log('User removed from whitelist:', userAddress, 'for file:', fileHash);
+      return true;
+    } catch (error) {
+      console.error('Error removing user from whitelist:', error);
+      throw error;
+    }
+  }
+
+  async toggleWhitelistMode(fileHash: string, account: string): Promise<boolean> {
+    if (!this.contract || !this.web3) {
+      throw new Error('Contract not initialized');
+    }
+
+    try {
+      const gasEstimate = await this.contract.methods.toggleWhitelistMode(fileHash).estimateGas({ from: account });
+      
+      await this.contract.methods.toggleWhitelistMode(fileHash).send({
+        from: account,
+        gas: gasEstimate,
+      });
+
+      console.log('Whitelist mode toggled for file:', fileHash);
+      return true;
+    } catch (error) {
+      console.error('Error toggling whitelist mode:', error);
+      throw error;
+    }
+  }
+
+  async getBlacklistedUsers(fileHash: string): Promise<string[]> {
+    if (!this.contract) {
+      throw new Error('Contract not initialized');
+    }
+
+    try {
+      const users = await this.contract.methods.getBlacklistedUsers(fileHash).call();
+      return users;
+    } catch (error) {
+      console.error('Error getting blacklisted users:', error);
+      return [];
+    }
+  }
+
+  async getWhitelistedUsers(fileHash: string): Promise<string[]> {
+    if (!this.contract) {
+      throw new Error('Contract not initialized');
+    }
+
+    try {
+      const users = await this.contract.methods.getWhitelistedUsers(fileHash).call();
+      return users;
+    } catch (error) {
+      console.error('Error getting whitelisted users:', error);
+      return [];
+    }
+  }
+
+  async isWhitelistModeEnabled(fileHash: string): Promise<boolean> {
+    if (!this.contract) {
+      throw new Error('Contract not initialized');
+    }
+
+    try {
+      const isEnabled = await this.contract.methods.isWhitelistModeEnabled(fileHash).call();
+      return isEnabled;
+    } catch (error) {
+      console.error('Error checking whitelist mode:', error);
+      return false;
+    }
+  }
+
+  async isUserBlacklisted(fileHash: string, userAddress: string): Promise<boolean> {
+    if (!this.contract) {
+      throw new Error('Contract not initialized');
+    }
+
+    try {
+      const isBlacklisted = await this.contract.methods.isUserBlacklisted(fileHash, userAddress).call();
+      return isBlacklisted;
+    } catch (error) {
+      console.error('Error checking if user is blacklisted:', error);
+      return false;
+    }
+  }
+
+  async isUserWhitelisted(fileHash: string, userAddress: string): Promise<boolean> {
+    if (!this.contract) {
+      throw new Error('Contract not initialized');
+    }
+
+    try {
+      const isWhitelisted = await this.contract.methods.isUserWhitelisted(fileHash, userAddress).call();
+      return isWhitelisted;
+    } catch (error) {
+      console.error('Error checking if user is whitelisted:', error);
+      return false;
     }
   }
 }

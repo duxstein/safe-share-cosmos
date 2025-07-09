@@ -9,7 +9,7 @@ import { IPFSFile, ipfsService } from '@/services/ipfsService';
 import { contractService } from '@/services/contractService';
 import { useWeb3 } from '@/contexts/Web3Context';
 import { useToast } from '@/hooks/use-toast';
-import SecureFileSharing from './SecureFileSharing';
+import AdvancedFileSharing from './AdvancedFileSharing';
 
 interface FileManagerProps {
   files: IPFSFile[];
@@ -179,7 +179,7 @@ const FileManager: React.FC<FileManagerProps> = ({ files }) => {
             Secure File Manager
           </CardTitle>
           <CardDescription>
-            {files.length} file{files.length !== 1 ? 's' : ''} stored on IPFS with blockchain access control
+            {files.length} file{files.length !== 1 ? 's' : ''} stored on IPFS with advanced blockchain access control
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -280,10 +280,10 @@ const FileManager: React.FC<FileManagerProps> = ({ files }) => {
                     </div>
                   </div>
                   
-                  {/* File Sharing Panel */}
+                  {/* Advanced File Sharing Panel */}
                   {sharingFile === file.hash && (
                     <div className="mt-4">
-                      <SecureFileSharing 
+                      <AdvancedFileSharing 
                         file={file} 
                         onAccessUpdated={() => checkFileAccess()}
                       />
