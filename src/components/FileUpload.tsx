@@ -19,7 +19,6 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded }) => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<IPFSFile | null>(null);
-  const [isRegistering, setIsRegistering] = useState(false);
   const { toast } = useToast();
 
   React.useEffect(() => {
@@ -38,45 +37,29 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded }) => {
     try {
       // Step 1: Upload to IPFS
       const progressInterval = setInterval(() => {
-        setUploadProgress(prev => Math.min(prev + 10, 70));
+        setUploadProgress(prev => Math.min(prev + 10, 90));
       }, 200);
 
       const ipfsFile = await ipfsService.uploadFile(file);
       
       clearInterval(progressInterval);
-      setUploadProgress(80);
+      setUploadProgress(100);
       
-      // Step 2: Register on blockchain if wallet is connected
-      if (isConnected && account) {
-        setIsRegistering(true);
-        try {
-          await contractService.registerFile(ipfsFile.hash, account);
-          setUploadProgress(100);
-          
-          toast({
-            title: "File uploaded and secured!",
-            description: `${file.name} has been uploaded to IPFS and registered on the blockchain`,
-          });
-        } catch (blockchainError) {
-          console.error('Blockchain registration failed:', blockchainError);
-          setUploadProgress(85);
-          
-          toast({
-            title: "File uploaded, registration failed",
-            description: `${file.name} uploaded to IPFS but blockchain registration failed. You can register it manually later.`,
-            variant: "destructive",
-          });
-        }
+      // Don't auto-register, let user choose
+      setUploadedFile(ipfsFile);
+      onFileUploaded(ipfsFile);
+
+      if (isConnected) {
+        toast({
+          title: "File uploaded to IPFS!",
+          description: `${file.name} has been uploaded. You can register it on the blockchain for secure access control.`,
+        });
       } else {
-        setUploadProgress(100);
         toast({
           title: "File uploaded!",
           description: `${file.name} has been uploaded to IPFS. Connect your wallet to enable secure access control.`,
         });
       }
-      
-      setUploadedFile(ipfsFile);
-      onFileUploaded(ipfsFile);
 
     } catch (error) {
       console.error('Upload error:', error);
@@ -87,7 +70,6 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded }) => {
       });
     } finally {
       setIsUploading(false);
-      setIsRegistering(false);
       setTimeout(() => {
         setUploadProgress(0);
         setUploadedFile(null);
@@ -114,7 +96,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded }) => {
         </CardTitle>
         <CardDescription>
           Upload files to IPFS with blockchain-based access control. 
-          {isConnected ? ' Files will be automatically registered for secure sharing.' : ' Connect your wallet for secure access control.'}
+          {isConnected ? ' Files can be registered for secure sharing after upload.' : ' Connect your wallet for secure access control.'}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -133,16 +115,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded }) => {
           {isUploading ? (
             <div className="space-y-4">
               <Loader2 className="h-12 w-12 mx-auto text-cyan-400 animate-spin" />
-              {isRegistering ? (
-                <>
-                  <div className="flex items-center justify-center gap-2">
-                    <Shield className="h-4 w-4 text-green-400" />
-                    <p className="text-green-400">Registering on blockchain...</p>
-                  </div>
-                </>
-              ) : (
-                <p className="text-cyan-400">Uploading to IPFS...</p>
-              )}
+              <p className="text-cyan-400">Uploading to IPFS...</p>
               <Progress value={uploadProgress} className="w-full" />
               <p className="text-sm text-muted-foreground">{uploadProgress}%</p>
             </div>
@@ -154,8 +127,8 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded }) => {
                 <p className="text-sm font-mono break-all">IPFS Hash: {uploadedFile.hash}</p>
                 {isConnected && (
                   <div className="flex items-center justify-center gap-1 mt-2">
-                    <Shield className="h-3 w-3 text-green-400" />
-                    <span className="text-xs text-green-400">Blockchain secured</span>
+                    <Shield className="h-3 w-3 text-yellow-400" />
+                    <span className="text-xs text-yellow-400">Ready for blockchain registration</span>
                   </div>
                 )}
               </div>
@@ -172,7 +145,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded }) => {
                   {isConnected ? (
                     <div className="flex items-center justify-center gap-1 mt-2">
                       <Shield className="h-3 w-3 text-green-400" />
-                      <span className="text-xs text-green-400">Secure blockchain registration enabled</span>
+                      <span className="text-xs text-green-400">Ready for blockchain registration</span>
                     </div>
                   ) : (
                     <p className="text-xs text-yellow-400 mt-2">Connect wallet for blockchain security</p>
