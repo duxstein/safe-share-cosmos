@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { File, Download, ExternalLink, Clock, Hash, HardDrive, Shield, Share2, Lock, Loader2 } from 'lucide-react';
+import { File, Download, ExternalLink, Clock, Hash, HardDrive, Shield, Share2, Lock, Loader2, UserMinus } from 'lucide-react';
 import { IPFSFile, ipfsService } from '@/services/ipfsService';
 import { contractService } from '@/services/contractService';
 import { useWeb3 } from '@/contexts/Web3Context';
@@ -20,6 +20,7 @@ const FileManager: React.FC<FileManagerProps> = ({ files, onFileRegistered }) =>
   const { web3, account, isConnected } = useWeb3();
   const [downloadingFiles, setDownloadingFiles] = useState<Set<string>>(new Set());
   const [registeringFiles, setRegisteringFiles] = useState<Set<string>>(new Set());
+  const [unregisteringFiles, setUnregisteringFiles] = useState<Set<string>>(new Set());
   const [sharingFile, setSharingFile] = useState<string | null>(null);
   const [fileAccess, setFileAccess] = useState<Map<string, boolean>>(new Map());
   const [registrationStatus, setRegistrationStatus] = useState<Map<string, boolean>>(new Map());
@@ -190,6 +191,10 @@ const FileManager: React.FC<FileManagerProps> = ({ files, onFileRegistered }) =>
 
       await contractService.registerFile(file.hash, account);
       
+      // Update the registration status immediately for better UX
+      setRegistrationStatus(prev => new Map(prev).set(file.hash, true));
+      setFileAccess(prev => new Map(prev).set(file.hash, true));
+      
       // Wait a moment for the transaction to be confirmed
       await new Promise(resolve => setTimeout(resolve, 2000));
       
@@ -213,6 +218,40 @@ const FileManager: React.FC<FileManagerProps> = ({ files, onFileRegistered }) =>
       });
     } finally {
       setRegisteringFiles(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(file.hash);
+        return newSet;
+      });
+    }
+  };
+
+  const handleUnregisterFile = async (file: IPFSFile) => {
+    if (!account || !isConnected) {
+      toast({
+        title: "Wallet not connected",
+        description: "Please connect your wallet to unregister files",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUnregisteringFiles(prev => new Set(prev).add(file.hash));
+    
+    try {
+      toast({
+        title: "Note",
+        description: "File unregistration is not implemented in the current contract. This would require a new contract method.",
+        variant: "destructive",
+      });
+    } catch (error) {
+      console.error('Unregistration error:', error);
+      toast({
+        title: "Unregistration failed",
+        description: "Could not unregister file from blockchain. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUnregisteringFiles(prev => {
         const newSet = new Set(prev);
         newSet.delete(file.hash);
         return newSet;
@@ -252,6 +291,7 @@ const FileManager: React.FC<FileManagerProps> = ({ files, onFileRegistered }) =>
             const isRegistered = registrationStatus.get(file.hash);
             const isLoading = loadingStatus.get(file.hash);
             const isRegistering = registeringFiles.has(file.hash);
+            const isUnregistering = unregisteringFiles.has(file.hash);
             const isOwner = isConnected && isRegistered && hasAccess;
             
             return (
@@ -277,12 +317,12 @@ const FileManager: React.FC<FileManagerProps> = ({ files, onFileRegistered }) =>
                               hasAccess ? (
                                 <Badge className="text-xs bg-green-500/20 text-green-400 border-green-500/50">
                                   <Shield className="h-3 w-3 mr-1" />
-                                  Authorized
+                                  Registered & Authorized
                                 </Badge>
                               ) : (
                                 <Badge className="text-xs bg-red-500/20 text-red-400 border-red-500/50">
                                   <Lock className="h-3 w-3 mr-1" />
-                                  No Access
+                                  Registered - No Access
                                 </Badge>
                               )
                             ) : (
@@ -311,21 +351,40 @@ const FileManager: React.FC<FileManagerProps> = ({ files, onFileRegistered }) =>
                     </div>
                     
                     <div className="flex gap-2 ml-4 flex-wrap">
-                      {/* Show Register button for wallet-connected users with unregistered files */}
-                      {isConnected && !isRegistered && !isLoading && (
-                        <Button
-                          size="sm"
-                          onClick={() => handleRegisterFile(file)}
-                          disabled={isRegistering}
-                          className="cosmic-gradient text-xs"
-                        >
-                          {isRegistering ? (
-                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                          ) : (
-                            <Shield className="h-3 w-3 mr-1" />
+                      {/* Show Register/Unregister button for wallet-connected users */}
+                      {isConnected && !isLoading && (
+                        <>
+                          {!isRegistered ? (
+                            <Button
+                              size="sm"
+                              onClick={() => handleRegisterFile(file)}
+                              disabled={isRegistering}
+                              className="cosmic-gradient text-xs"
+                            >
+                              {isRegistering ? (
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              ) : (
+                                <Shield className="h-3 w-3 mr-1" />
+                              )}
+                              {isRegistering ? 'Registering...' : 'Register'}
+                            </Button>
+                          ) : hasAccess && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleUnregisterFile(file)}
+                              disabled={isUnregistering}
+                              className="border-red-500/50 text-red-400 hover:bg-red-500/10 text-xs"
+                            >
+                              {isUnregistering ? (
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              ) : (
+                                <UserMinus className="h-3 w-3 mr-1" />
+                              )}
+                              {isUnregistering ? 'Unregistering...' : 'Unregister'}
+                            </Button>
                           )}
-                          {isRegistering ? 'Registering...' : 'Register'}
-                        </Button>
+                        </>
                       )}
                       
                       <Button
