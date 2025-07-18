@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -195,8 +194,8 @@ const FileManager: React.FC<FileManagerProps> = ({ files, onFileRegistered }) =>
       setRegistrationStatus(prev => new Map(prev).set(file.hash, true));
       setFileAccess(prev => new Map(prev).set(file.hash, true));
       
-      // Wait a moment for the transaction to be confirmed
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Wait a shorter time for the transaction to be confirmed
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Refresh the file access status
       await checkFileAccess();
@@ -211,6 +210,11 @@ const FileManager: React.FC<FileManagerProps> = ({ files, onFileRegistered }) =>
       
     } catch (error) {
       console.error('Registration error:', error);
+      
+      // Reset the optimistic update on error
+      setRegistrationStatus(prev => new Map(prev).set(file.hash, false));
+      setFileAccess(prev => new Map(prev).set(file.hash, false));
+      
       toast({
         title: "Registration failed",
         description: "Could not register file on blockchain. Please try again.",

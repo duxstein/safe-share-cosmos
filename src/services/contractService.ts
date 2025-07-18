@@ -132,6 +132,7 @@ class ContractService {
   private web3: Web3 | null = null;
   private contract: any = null;
   private isInitialized = false;
+  private registeredFiles = new Map<string, { owner: string; timestamp: number }>();
 
   initialize(web3: Web3) {
     this.web3 = web3;
@@ -171,6 +172,13 @@ class ContractService {
       });
 
       console.log('File registered successfully:', result);
+      
+      // Store in local cache immediately after successful registration
+      this.registeredFiles.set(fileHash, {
+        owner: account,
+        timestamp: Date.now()
+      });
+      
       return true;
     } catch (error) {
       console.error('Error registering file:', error);
@@ -223,11 +231,28 @@ class ContractService {
     this.ensureInitialized();
 
     try {
+      // First check local cache for recently registered files
+      const cached = this.registeredFiles.get(fileHash);
+      if (cached && cached.owner.toLowerCase() === userAddress.toLowerCase()) {
+        console.log('File access granted from cache (owner):', fileHash);
+        return true;
+      }
+
       const hasAccess = await this.contract.methods.hasAccess(fileHash, userAddress).call();
       console.log('Access check for', userAddress, 'on file', fileHash, ':', hasAccess);
       return hasAccess;
     } catch (error) {
       console.error('Error checking access:', error);
+      
+      // If it's an ABI error and we have the file in cache, check ownership
+      if (error.message?.includes('Parameter decoding error') || error.message?.includes('AbiError')) {
+        const cached = this.registeredFiles.get(fileHash);
+        if (cached && cached.owner.toLowerCase() === userAddress.toLowerCase()) {
+          console.log('File access granted from cache due to ABI error (owner):', fileHash);
+          return true;
+        }
+      }
+      
       return false;
     }
   }
@@ -236,11 +261,38 @@ class ContractService {
     this.ensureInitialized();
 
     try {
+      // First check local cache
+      const cached = this.registeredFiles.get(fileHash);
+      if (cached) {
+        console.log('File owner from cache:', fileHash, ':', cached.owner);
+        return cached.owner;
+      }
+
       const owner = await this.contract.methods.getFileOwner(fileHash).call();
       console.log('File owner for', fileHash, ':', owner);
+      
+      // Cache the result if it's not the zero address
+      if (owner && owner !== '0x0000000000000000000000000000000000000000') {
+        this.registeredFiles.set(fileHash, {
+          owner: owner,
+          timestamp: Date.now()
+        });
+      }
+      
       return owner;
     } catch (error) {
       console.error('Error getting file owner:', error);
+      
+      // If it's an ABI error, check cache first
+      if (error.message?.includes('Parameter decoding error') || error.message?.includes('AbiError')) {
+        const cached = this.registeredFiles.get(fileHash);
+        if (cached) {
+          console.log('File owner from cache due to ABI error:', fileHash, ':', cached.owner);
+          return cached.owner;
+        }
+        console.log('File not found in cache and ABI error occurred, treating as unregistered:', fileHash);
+      }
+      
       // Return zero address if file doesn't exist or other error
       return '0x0000000000000000000000000000000000000000';
     }
@@ -426,6 +478,11 @@ class ContractService {
       console.error('Error checking contract deployment:', error);
       return false;
     }
+  }
+
+  // Method to clear cache (useful for testing)
+  clearCache() {
+    this.registeredFiles.clear();
   }
 }
 
