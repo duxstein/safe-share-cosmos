@@ -146,6 +146,13 @@ class ContractService {
     }
   }
 
+  private convertBigIntToNumber(value: any): number {
+    if (typeof value === 'bigint') {
+      return Number(value);
+    }
+    return typeof value === 'number' ? value : parseInt(value.toString());
+  }
+
   async registerFile(fileHash: string, account: string): Promise<boolean> {
     this.ensureInitialized();
 
@@ -155,9 +162,12 @@ class ContractService {
       const gasEstimate = await this.contract.methods.uploadFile(fileHash).estimateGas({ from: account });
       console.log('Gas estimate:', gasEstimate);
       
+      const gasLimit = Math.floor(this.convertBigIntToNumber(gasEstimate) * 1.2);
+      console.log('Gas limit:', gasLimit);
+      
       const result = await this.contract.methods.uploadFile(fileHash).send({
         from: account,
-        gas: Math.floor(gasEstimate * 1.2), // Add 20% buffer
+        gas: gasLimit,
       });
 
       console.log('File registered successfully:', result);
@@ -179,7 +189,7 @@ class ContractService {
       
       await this.contract.methods.grantAccess(fileHash, userAddress).send({
         from: account,
-        gas: Math.floor(gasEstimate * 1.2),
+        gas: Math.floor(this.convertBigIntToNumber(gasEstimate) * 1.2),
       });
 
       console.log('Access granted to:', userAddress, 'for file:', fileHash);
@@ -198,7 +208,7 @@ class ContractService {
       
       await this.contract.methods.revokeAccess(fileHash, userAddress).send({
         from: account,
-        gas: Math.floor(gasEstimate * 1.2),
+        gas: Math.floor(this.convertBigIntToNumber(gasEstimate) * 1.2),
       });
 
       console.log('Access revoked from:', userAddress, 'for file:', fileHash);
@@ -256,7 +266,7 @@ class ContractService {
       
       await this.contract.methods.addToBlacklist(fileHash, userAddress).send({
         from: account,
-        gas: Math.floor(gasEstimate * 1.2),
+        gas: Math.floor(this.convertBigIntToNumber(gasEstimate) * 1.2),
       });
 
       console.log('User blacklisted:', userAddress, 'for file:', fileHash);
@@ -275,7 +285,7 @@ class ContractService {
       
       await this.contract.methods.removeFromBlacklist(fileHash, userAddress).send({
         from: account,
-        gas: Math.floor(gasEstimate * 1.2),
+        gas: Math.floor(this.convertBigIntToNumber(gasEstimate) * 1.2),
       });
 
       console.log('User removed from blacklist:', userAddress, 'for file:', fileHash);
@@ -294,7 +304,7 @@ class ContractService {
       
       await this.contract.methods.addToWhitelist(fileHash, userAddress).send({
         from: account,
-        gas: Math.floor(gasEstimate * 1.2),
+        gas: Math.floor(this.convertBigIntToNumber(gasEstimate) * 1.2),
       });
 
       console.log('User whitelisted:', userAddress, 'for file:', fileHash);
@@ -313,7 +323,7 @@ class ContractService {
       
       await this.contract.methods.removeFromWhitelist(fileHash, userAddress).send({
         from: account,
-        gas: Math.floor(gasEstimate * 1.2),
+        gas: Math.floor(this.convertBigIntToNumber(gasEstimate) * 1.2),
       });
 
       console.log('User removed from whitelist:', userAddress, 'for file:', fileHash);
@@ -332,7 +342,7 @@ class ContractService {
       
       await this.contract.methods.toggleWhitelistMode(fileHash).send({
         from: account,
-        gas: Math.floor(gasEstimate * 1.2),
+        gas: Math.floor(this.convertBigIntToNumber(gasEstimate) * 1.2),
       });
 
       console.log('Whitelist mode toggled for file:', fileHash);
