@@ -116,8 +116,8 @@ const FILE_SHARING_ABI = [
   }
 ];
 
-// You'll need to deploy the updated contract and update this address
-const CONTRACT_ADDRESS = '0x742d35Cc6634C0532925a3b8D7389Cd64E6b1A8D'; // Placeholder address
+// Contract address - you'll need to deploy the contract and update this
+const CONTRACT_ADDRESS = '0x742d35Cc6634C0532925a3b8D7389Cd64E6b1A8D';
 
 export interface FilePermission {
   fileHash: string;
@@ -131,44 +131,55 @@ export interface FilePermission {
 class ContractService {
   private web3: Web3 | null = null;
   private contract: any = null;
+  private isInitialized = false;
 
   initialize(web3: Web3) {
     this.web3 = web3;
     this.contract = new web3.eth.Contract(FILE_SHARING_ABI, CONTRACT_ADDRESS);
+    this.isInitialized = true;
+    console.log('Contract service initialized with address:', CONTRACT_ADDRESS);
+  }
+
+  private ensureInitialized() {
+    if (!this.isInitialized || !this.contract || !this.web3) {
+      throw new Error('Contract not initialized. Please connect your wallet first.');
+    }
   }
 
   async registerFile(fileHash: string, account: string): Promise<boolean> {
-    if (!this.contract || !this.web3) {
-      throw new Error('Contract not initialized');
-    }
+    this.ensureInitialized();
 
     try {
-      const gasEstimate = await this.contract.methods.uploadFile(fileHash).estimateGas({ from: account });
+      console.log('Registering file:', fileHash, 'from account:', account);
       
-      await this.contract.methods.uploadFile(fileHash).send({
+      const gasEstimate = await this.contract.methods.uploadFile(fileHash).estimateGas({ from: account });
+      console.log('Gas estimate:', gasEstimate);
+      
+      const result = await this.contract.methods.uploadFile(fileHash).send({
         from: account,
-        gas: gasEstimate,
+        gas: Math.floor(gasEstimate * 1.2), // Add 20% buffer
       });
 
-      console.log('File registered on blockchain:', fileHash);
+      console.log('File registered successfully:', result);
       return true;
     } catch (error) {
       console.error('Error registering file:', error);
+      if (error.message?.includes('revert')) {
+        throw new Error('Transaction reverted. The file may already be registered.');
+      }
       throw error;
     }
   }
 
   async grantFileAccess(fileHash: string, userAddress: string, account: string): Promise<boolean> {
-    if (!this.contract || !this.web3) {
-      throw new Error('Contract not initialized');
-    }
+    this.ensureInitialized();
 
     try {
       const gasEstimate = await this.contract.methods.grantAccess(fileHash, userAddress).estimateGas({ from: account });
       
       await this.contract.methods.grantAccess(fileHash, userAddress).send({
         from: account,
-        gas: gasEstimate,
+        gas: Math.floor(gasEstimate * 1.2),
       });
 
       console.log('Access granted to:', userAddress, 'for file:', fileHash);
@@ -180,16 +191,14 @@ class ContractService {
   }
 
   async revokeFileAccess(fileHash: string, userAddress: string, account: string): Promise<boolean> {
-    if (!this.contract || !this.web3) {
-      throw new Error('Contract not initialized');
-    }
+    this.ensureInitialized();
 
     try {
       const gasEstimate = await this.contract.methods.revokeAccess(fileHash, userAddress).estimateGas({ from: account });
       
       await this.contract.methods.revokeAccess(fileHash, userAddress).send({
         from: account,
-        gas: gasEstimate,
+        gas: Math.floor(gasEstimate * 1.2),
       });
 
       console.log('Access revoked from:', userAddress, 'for file:', fileHash);
@@ -201,12 +210,11 @@ class ContractService {
   }
 
   async checkFileAccess(fileHash: string, userAddress: string): Promise<boolean> {
-    if (!this.contract) {
-      throw new Error('Contract not initialized');
-    }
+    this.ensureInitialized();
 
     try {
       const hasAccess = await this.contract.methods.hasAccess(fileHash, userAddress).call();
+      console.log('Access check for', userAddress, 'on file', fileHash, ':', hasAccess);
       return hasAccess;
     } catch (error) {
       console.error('Error checking access:', error);
@@ -215,23 +223,21 @@ class ContractService {
   }
 
   async getFileOwner(fileHash: string): Promise<string> {
-    if (!this.contract) {
-      throw new Error('Contract not initialized');
-    }
+    this.ensureInitialized();
 
     try {
       const owner = await this.contract.methods.getFileOwner(fileHash).call();
+      console.log('File owner for', fileHash, ':', owner);
       return owner;
     } catch (error) {
       console.error('Error getting file owner:', error);
-      throw error;
+      // Return zero address if file doesn't exist or other error
+      return '0x0000000000000000000000000000000000000000';
     }
   }
 
   async getAuthorizedUsers(fileHash: string): Promise<string[]> {
-    if (!this.contract) {
-      throw new Error('Contract not initialized');
-    }
+    this.ensureInitialized();
 
     try {
       const users = await this.contract.methods.getAuthorizedUsers(fileHash).call();
@@ -243,16 +249,14 @@ class ContractService {
   }
 
   async addToBlacklist(fileHash: string, userAddress: string, account: string): Promise<boolean> {
-    if (!this.contract || !this.web3) {
-      throw new Error('Contract not initialized');
-    }
+    this.ensureInitialized();
 
     try {
       const gasEstimate = await this.contract.methods.addToBlacklist(fileHash, userAddress).estimateGas({ from: account });
       
       await this.contract.methods.addToBlacklist(fileHash, userAddress).send({
         from: account,
-        gas: gasEstimate,
+        gas: Math.floor(gasEstimate * 1.2),
       });
 
       console.log('User blacklisted:', userAddress, 'for file:', fileHash);
@@ -264,16 +268,14 @@ class ContractService {
   }
 
   async removeFromBlacklist(fileHash: string, userAddress: string, account: string): Promise<boolean> {
-    if (!this.contract || !this.web3) {
-      throw new Error('Contract not initialized');
-    }
+    this.ensureInitialized();
 
     try {
       const gasEstimate = await this.contract.methods.removeFromBlacklist(fileHash, userAddress).estimateGas({ from: account });
       
       await this.contract.methods.removeFromBlacklist(fileHash, userAddress).send({
         from: account,
-        gas: gasEstimate,
+        gas: Math.floor(gasEstimate * 1.2),
       });
 
       console.log('User removed from blacklist:', userAddress, 'for file:', fileHash);
@@ -285,16 +287,14 @@ class ContractService {
   }
 
   async addToWhitelist(fileHash: string, userAddress: string, account: string): Promise<boolean> {
-    if (!this.contract || !this.web3) {
-      throw new Error('Contract not initialized');
-    }
+    this.ensureInitialized();
 
     try {
       const gasEstimate = await this.contract.methods.addToWhitelist(fileHash, userAddress).estimateGas({ from: account });
       
       await this.contract.methods.addToWhitelist(fileHash, userAddress).send({
         from: account,
-        gas: gasEstimate,
+        gas: Math.floor(gasEstimate * 1.2),
       });
 
       console.log('User whitelisted:', userAddress, 'for file:', fileHash);
@@ -306,16 +306,14 @@ class ContractService {
   }
 
   async removeFromWhitelist(fileHash: string, userAddress: string, account: string): Promise<boolean> {
-    if (!this.contract || !this.web3) {
-      throw new Error('Contract not initialized');
-    }
+    this.ensureInitialized();
 
     try {
       const gasEstimate = await this.contract.methods.removeFromWhitelist(fileHash, userAddress).estimateGas({ from: account });
       
       await this.contract.methods.removeFromWhitelist(fileHash, userAddress).send({
         from: account,
-        gas: gasEstimate,
+        gas: Math.floor(gasEstimate * 1.2),
       });
 
       console.log('User removed from whitelist:', userAddress, 'for file:', fileHash);
@@ -327,16 +325,14 @@ class ContractService {
   }
 
   async toggleWhitelistMode(fileHash: string, account: string): Promise<boolean> {
-    if (!this.contract || !this.web3) {
-      throw new Error('Contract not initialized');
-    }
+    this.ensureInitialized();
 
     try {
       const gasEstimate = await this.contract.methods.toggleWhitelistMode(fileHash).estimateGas({ from: account });
       
       await this.contract.methods.toggleWhitelistMode(fileHash).send({
         from: account,
-        gas: gasEstimate,
+        gas: Math.floor(gasEstimate * 1.2),
       });
 
       console.log('Whitelist mode toggled for file:', fileHash);
@@ -348,9 +344,7 @@ class ContractService {
   }
 
   async getBlacklistedUsers(fileHash: string): Promise<string[]> {
-    if (!this.contract) {
-      throw new Error('Contract not initialized');
-    }
+    this.ensureInitialized();
 
     try {
       const users = await this.contract.methods.getBlacklistedUsers(fileHash).call();
@@ -362,9 +356,7 @@ class ContractService {
   }
 
   async getWhitelistedUsers(fileHash: string): Promise<string[]> {
-    if (!this.contract) {
-      throw new Error('Contract not initialized');
-    }
+    this.ensureInitialized();
 
     try {
       const users = await this.contract.methods.getWhitelistedUsers(fileHash).call();
@@ -376,9 +368,7 @@ class ContractService {
   }
 
   async isWhitelistModeEnabled(fileHash: string): Promise<boolean> {
-    if (!this.contract) {
-      throw new Error('Contract not initialized');
-    }
+    this.ensureInitialized();
 
     try {
       const isEnabled = await this.contract.methods.isWhitelistModeEnabled(fileHash).call();
@@ -390,9 +380,7 @@ class ContractService {
   }
 
   async isUserBlacklisted(fileHash: string, userAddress: string): Promise<boolean> {
-    if (!this.contract) {
-      throw new Error('Contract not initialized');
-    }
+    this.ensureInitialized();
 
     try {
       const isBlacklisted = await this.contract.methods.isUserBlacklisted(fileHash, userAddress).call();
@@ -404,15 +392,28 @@ class ContractService {
   }
 
   async isUserWhitelisted(fileHash: string, userAddress: string): Promise<boolean> {
-    if (!this.contract) {
-      throw new Error('Contract not initialized');
-    }
+    this.ensureInitialized();
 
     try {
       const isWhitelisted = await this.contract.methods.isUserWhitelisted(fileHash, userAddress).call();
       return isWhitelisted;
     } catch (error) {
       console.error('Error checking if user is whitelisted:', error);
+      return false;
+    }
+  }
+
+  // Method to check if contract is deployed and accessible
+  async isContractDeployed(): Promise<boolean> {
+    if (!this.contract || !this.web3) {
+      return false;
+    }
+
+    try {
+      const code = await this.web3.eth.getCode(CONTRACT_ADDRESS);
+      return code !== '0x';
+    } catch (error) {
+      console.error('Error checking contract deployment:', error);
       return false;
     }
   }

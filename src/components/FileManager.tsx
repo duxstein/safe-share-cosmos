@@ -1,9 +1,10 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { File, Download, ExternalLink, Clock, Hash, HardDrive, Shield, Share2, Lock } from 'lucide-react';
+import { File, Download, ExternalLink, Clock, Hash, HardDrive, Shield, Share2, Lock, Loader2 } from 'lucide-react';
 import { IPFSFile, ipfsService } from '@/services/ipfsService';
 import { contractService } from '@/services/contractService';
 import { useWeb3 } from '@/contexts/Web3Context';
@@ -12,53 +13,75 @@ import AdvancedFileSharing from './AdvancedFileSharing';
 
 interface FileManagerProps {
   files: IPFSFile[];
+  onFileRegistered?: () => void;
 }
 
-const FileManager: React.FC<FileManagerProps> = ({ files }) => {
+const FileManager: React.FC<FileManagerProps> = ({ files, onFileRegistered }) => {
   const { web3, account, isConnected } = useWeb3();
   const [downloadingFiles, setDownloadingFiles] = useState<Set<string>>(new Set());
+  const [registeringFiles, setRegisteringFiles] = useState<Set<string>>(new Set());
   const [sharingFile, setSharingFile] = useState<string | null>(null);
   const [fileAccess, setFileAccess] = useState<Map<string, boolean>>(new Map());
   const [registrationStatus, setRegistrationStatus] = useState<Map<string, boolean>>(new Map());
+  const [loadingStatus, setLoadingStatus] = useState<Map<string, boolean>>(new Map());
   const { toast } = useToast();
 
   React.useEffect(() => {
-    if (web3 && account) {
+    if (web3 && account && isConnected) {
       contractService.initialize(web3);
       checkFileAccess();
     }
-  }, [web3, account, files]);
+  }, [web3, account, isConnected, files]);
 
   const checkFileAccess = async () => {
-    if (!account || files.length === 0) return;
+    if (!account || !isConnected || files.length === 0) return;
 
+    console.log('Checking file access for', files.length, 'files');
+    
     const accessMap = new Map<string, boolean>();
     const registrationMap = new Map<string, boolean>();
+    const loadingMap = new Map<string, boolean>();
     
     for (const file of files) {
       try {
+        loadingMap.set(file.hash, true);
+        setLoadingStatus(new Map(loadingMap));
+        
+        console.log('Checking file:', file.hash);
+        
         // Check if file is registered on blockchain
         const owner = await contractService.getFileOwner(file.hash);
-        const isRegistered = owner !== '0x0000000000000000000000000000000000000000';
+        console.log('File owner:', owner);
+        
+        const isRegistered = owner && owner !== '0x0000000000000000000000000000000000000000';
         registrationMap.set(file.hash, isRegistered);
         
         if (isRegistered) {
           const hasAccess = await contractService.checkFileAccess(file.hash, account);
           const isOwner = owner.toLowerCase() === account.toLowerCase();
           accessMap.set(file.hash, hasAccess || isOwner);
+          console.log(`File ${file.hash}: owner=${owner}, isOwner=${isOwner}, hasAccess=${hasAccess}`);
         } else {
-          // File not registered, no access through blockchain
+          // File not registered, no blockchain access control
           accessMap.set(file.hash, false);
+          console.log(`File ${file.hash}: not registered`);
         }
         
-        console.log(`File ${file.hash}: registered=${isRegistered}, hasAccess=${accessMap.get(file.hash)}`);
+        loadingMap.set(file.hash, false);
+        setLoadingStatus(new Map(loadingMap));
+        
       } catch (error) {
+        console.error('Error checking access for file:', file.hash, error);
         // If contract call fails, assume file is not registered
-        console.warn('Could not check access for file:', file.hash, error);
         registrationMap.set(file.hash, false);
         accessMap.set(file.hash, false);
+        loadingMap.set(file.hash, false);
+        setLoadingStatus(new Map(loadingMap));
       }
     }
+    
+    console.log('Registration status:', registrationMap);
+    console.log('Access status:', accessMap);
     
     setRegistrationStatus(registrationMap);
     setFileAccess(accessMap);
@@ -77,7 +100,7 @@ const FileManager: React.FC<FileManagerProps> = ({ files }) => {
   };
 
   const handleSecureDownload = async (file: IPFSFile) => {
-    if (!account) {
+    if (!account && isConnected) {
       toast({
         title: "Wallet not connected",
         description: "Please connect your wallet to download files",
@@ -89,7 +112,7 @@ const FileManager: React.FC<FileManagerProps> = ({ files }) => {
     const hasAccess = fileAccess.get(file.hash);
     const isRegistered = registrationStatus.get(file.hash);
     
-    if (isRegistered && !hasAccess) {
+    if (isConnected && isRegistered && !hasAccess) {
       toast({
         title: "Access denied",
         description: "You don't have permission to download this file",
@@ -132,7 +155,7 @@ const FileManager: React.FC<FileManagerProps> = ({ files }) => {
     const hasAccess = fileAccess.get(file.hash);
     const isRegistered = registrationStatus.get(file.hash);
     
-    if (isRegistered && !hasAccess && isConnected) {
+    if (isConnected && isRegistered && !hasAccess) {
       toast({
         title: "Access denied",
         description: "You don't have permission to view this file",
@@ -146,7 +169,7 @@ const FileManager: React.FC<FileManagerProps> = ({ files }) => {
   };
 
   const handleRegisterFile = async (file: IPFSFile) => {
-    if (!account) {
+    if (!account || !isConnected) {
       toast({
         title: "Wallet not connected",
         description: "Please connect your wallet to register files",
@@ -155,25 +178,44 @@ const FileManager: React.FC<FileManagerProps> = ({ files }) => {
       return;
     }
 
+    setRegisteringFiles(prev => new Set(prev).add(file.hash));
+    
     try {
+      console.log('Registering file:', file.hash);
+      
       toast({
         title: "Registering file...",
         description: "Please confirm the transaction in your wallet",
       });
 
       await contractService.registerFile(file.hash, account);
+      
+      // Wait a moment for the transaction to be confirmed
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Refresh the file access status
       await checkFileAccess();
+      
+      // Notify parent component if callback provided
+      onFileRegistered?.();
       
       toast({
         title: "File registered!",
         description: "File has been registered on the blockchain for secure access control",
       });
+      
     } catch (error) {
       console.error('Registration error:', error);
       toast({
         title: "Registration failed",
         description: "Could not register file on blockchain. Please try again.",
         variant: "destructive",
+      });
+    } finally {
+      setRegisteringFiles(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(file.hash);
+        return newSet;
       });
     }
   };
@@ -208,8 +250,9 @@ const FileManager: React.FC<FileManagerProps> = ({ files }) => {
           {files.map((file, index) => {
             const hasAccess = fileAccess.get(file.hash);
             const isRegistered = registrationStatus.get(file.hash);
-            
-            console.log(`Rendering file ${file.name}: isConnected=${isConnected}, isRegistered=${isRegistered}, hasAccess=${hasAccess}`);
+            const isLoading = loadingStatus.get(file.hash);
+            const isRegistering = registeringFiles.has(file.hash);
+            const isOwner = isConnected && isRegistered && hasAccess;
             
             return (
               <div key={file.hash}>
@@ -225,7 +268,12 @@ const FileManager: React.FC<FileManagerProps> = ({ files }) => {
                         
                         {isConnected && (
                           <>
-                            {isRegistered ? (
+                            {isLoading ? (
+                              <Badge className="text-xs bg-gray-500/20 text-gray-400 border-gray-500/50">
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                Checking...
+                              </Badge>
+                            ) : isRegistered ? (
                               hasAccess ? (
                                 <Badge className="text-xs bg-green-500/20 text-green-400 border-green-500/50">
                                   <Shield className="h-3 w-3 mr-1" />
@@ -264,14 +312,19 @@ const FileManager: React.FC<FileManagerProps> = ({ files }) => {
                     
                     <div className="flex gap-2 ml-4 flex-wrap">
                       {/* Show Register button for wallet-connected users with unregistered files */}
-                      {isConnected && !isRegistered && (
+                      {isConnected && !isRegistered && !isLoading && (
                         <Button
                           size="sm"
                           onClick={() => handleRegisterFile(file)}
+                          disabled={isRegistering}
                           className="cosmic-gradient text-xs"
                         >
-                          <Shield className="h-3 w-3 mr-1" />
-                          Register
+                          {isRegistering ? (
+                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          ) : (
+                            <Shield className="h-3 w-3 mr-1" />
+                          )}
+                          {isRegistering ? 'Registering...' : 'Register'}
                         </Button>
                       )}
                       
@@ -289,12 +342,14 @@ const FileManager: React.FC<FileManagerProps> = ({ files }) => {
                         size="sm"
                         variant="outline"
                         onClick={() => openInGateway(file)}
+                        disabled={isConnected && isRegistered && !hasAccess}
                         className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10"
                       >
                         <ExternalLink className="h-3 w-3" />
                       </Button>
                       
-                      {isConnected && isRegistered && hasAccess && (
+                      {/* Show Share button for registered files that user owns */}
+                      {isConnected && isRegistered && hasAccess && !isLoading && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -308,7 +363,7 @@ const FileManager: React.FC<FileManagerProps> = ({ files }) => {
                   </div>
                   
                   {/* Advanced File Sharing Panel */}
-                  {sharingFile === file.hash && (
+                  {sharingFile === file.hash && isConnected && isRegistered && hasAccess && (
                     <div className="mt-4">
                       <AdvancedFileSharing 
                         file={file} 
