@@ -1,18 +1,25 @@
 
 import React, { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { Web3Provider } from '@/contexts/Web3Context';
 import WalletConnection from '@/components/WalletConnection';
 import FileUpload from '@/components/FileUpload';
 import FileManager from '@/components/FileManager';
 import IPFSSettings from '@/components/IPFSSettings';
+import { Button } from '@/components/ui/button';
 import { IPFSFile } from '@/services/ipfsService';
-import { Shield, Globe, Lock } from 'lucide-react';
+import { Shield, Globe, Lock, LogOut } from 'lucide-react';
 
 const Index = () => {
+  const { user, signOut } = useAuth();
   const [uploadedFiles, setUploadedFiles] = useState<IPFSFile[]>([]);
 
   const handleFileUploaded = (file: IPFSFile) => {
     setUploadedFiles(prev => [file, ...prev]);
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
   };
 
   return (
@@ -43,6 +50,22 @@ const Index = () => {
                   <Lock className="h-4 w-4 text-purple-400" />
                   <span>Ethereum</span>
                 </div>
+                {user && (
+                  <div className="flex items-center gap-3 ml-4 pl-4 border-l border-border">
+                    <span className="text-xs">
+                      {user.email}
+                    </span>
+                    <Button
+                      onClick={handleSignOut}
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-destructive hover:text-destructive"
+                    >
+                      <LogOut className="h-4 w-4 mr-1" />
+                      Sign Out
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
