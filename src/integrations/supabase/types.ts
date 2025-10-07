@@ -14,6 +14,342 @@ export type Database = {
   }
   public: {
     Tables: {
+      file_analytics: {
+        Row: {
+          average_rating: number | null
+          comment_count: number | null
+          download_count: number | null
+          favorite_count: number | null
+          file_id: string
+          rating_count: number | null
+          updated_at: string | null
+          view_count: number | null
+        }
+        Insert: {
+          average_rating?: number | null
+          comment_count?: number | null
+          download_count?: number | null
+          favorite_count?: number | null
+          file_id: string
+          rating_count?: number | null
+          updated_at?: string | null
+          view_count?: number | null
+        }
+        Update: {
+          average_rating?: number | null
+          comment_count?: number | null
+          download_count?: number | null
+          favorite_count?: number | null
+          file_id?: string
+          rating_count?: number | null
+          updated_at?: string | null
+          view_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_analytics_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: true
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      file_comments: {
+        Row: {
+          comment: string
+          created_at: string | null
+          file_id: string
+          id: string
+          parent_comment_id: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          comment: string
+          created_at?: string | null
+          file_id: string
+          id?: string
+          parent_comment_id?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          comment?: string
+          created_at?: string | null
+          file_id?: string
+          id?: string
+          parent_comment_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_comments_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_comments_parent_comment_id_fkey"
+            columns: ["parent_comment_id"]
+            isOneToOne: false
+            referencedRelation: "file_comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      file_downloads: {
+        Row: {
+          created_at: string | null
+          file_id: string
+          id: string
+          ip_address: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          file_id: string
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          file_id?: string
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_downloads_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      file_favorites: {
+        Row: {
+          created_at: string | null
+          file_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          file_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          file_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_favorites_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      file_moderation: {
+        Row: {
+          created_at: string | null
+          file_id: string
+          id: string
+          moderator_notes: string | null
+          moderator_user_id: string | null
+          reason: string
+          reporter_user_id: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          file_id: string
+          id?: string
+          moderator_notes?: string | null
+          moderator_user_id?: string | null
+          reason: string
+          reporter_user_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          file_id?: string
+          id?: string
+          moderator_notes?: string | null
+          moderator_user_id?: string | null
+          reason?: string
+          reporter_user_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_moderation_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      file_ratings: {
+        Row: {
+          created_at: string | null
+          file_id: string
+          id: string
+          rating: number
+          review: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          file_id: string
+          id?: string
+          rating: number
+          review?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          file_id?: string
+          id?: string
+          rating?: number
+          review?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_ratings_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      file_seeders: {
+        Row: {
+          bytes_uploaded: number | null
+          created_at: string | null
+          file_id: string
+          id: string
+          ip_address: string | null
+          last_seen: string | null
+          peer_id: string
+          port: number | null
+        }
+        Insert: {
+          bytes_uploaded?: number | null
+          created_at?: string | null
+          file_id: string
+          id?: string
+          ip_address?: string | null
+          last_seen?: string | null
+          peer_id: string
+          port?: number | null
+        }
+        Update: {
+          bytes_uploaded?: number | null
+          created_at?: string | null
+          file_id?: string
+          id?: string
+          ip_address?: string | null
+          last_seen?: string | null
+          peer_id?: string
+          port?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_seeders_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      files: {
+        Row: {
+          blockchain_tx_id: string | null
+          categories: string[] | null
+          cdn_url: string | null
+          created_at: string | null
+          description: string | null
+          file_name: string
+          file_size: number
+          file_type: string
+          id: string
+          ipfs_cid: string
+          is_public: boolean | null
+          license: string | null
+          mime_type: string
+          tags: string[] | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          blockchain_tx_id?: string | null
+          categories?: string[] | null
+          cdn_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          file_name: string
+          file_size: number
+          file_type: string
+          id?: string
+          ipfs_cid: string
+          is_public?: boolean | null
+          license?: string | null
+          mime_type: string
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          blockchain_tx_id?: string | null
+          categories?: string[] | null
+          cdn_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          file_name?: string
+          file_size?: number
+          file_type?: string
+          id?: string
+          ipfs_cid?: string
+          is_public?: boolean | null
+          license?: string | null
+          mime_type?: string
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -23,6 +359,7 @@ export type Database = {
           updated_at: string
           user_id: string
           username: string | null
+          wallet_address: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -32,6 +369,7 @@ export type Database = {
           updated_at?: string
           user_id: string
           username?: string | null
+          wallet_address?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -41,6 +379,49 @@ export type Database = {
           updated_at?: string
           user_id?: string
           username?: string | null
+          wallet_address?: string | null
+        }
+        Relationships: []
+      }
+      user_followers: {
+        Row: {
+          created_at: string | null
+          follower_id: string
+          following_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string | null
+          follower_id: string
+          following_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string | null
+          follower_id?: string
+          following_id?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
         }
         Relationships: []
       }
@@ -49,10 +430,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -179,6 +566,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
