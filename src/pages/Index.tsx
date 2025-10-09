@@ -35,7 +35,7 @@ const Index = () => {
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
-                    SecureShare
+                    BlockVault
                   </h1>
                   <p className="text-sm text-muted-foreground">Decentralized File Sharing</p>
                 </div>

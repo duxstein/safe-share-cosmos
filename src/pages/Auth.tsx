@@ -102,7 +102,7 @@ const Auth = () => {
       <Card className="w-full max-w-md glass-card border-primary/20">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent">
-            SecureShare
+            BlockVault
           </CardTitle>
           <CardDescription>
             Secure your digital assets with blockchain technology
