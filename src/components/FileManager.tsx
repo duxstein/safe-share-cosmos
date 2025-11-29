@@ -1,21 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { File, Download, ExternalLink, Clock, Hash, HardDrive, Shield, Share2, Lock, Loader2, UserMinus } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { File, Download, ExternalLink, Clock, Hash, HardDrive, Shield, Share2, Lock, Loader2, UserMinus, Users } from 'lucide-react';
 import { IPFSFile, ipfsService } from '@/services/ipfsService';
 import { contractService } from '@/services/contractService';
 import { useWeb3 } from '@/contexts/Web3Context';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import AdvancedFileSharing from './AdvancedFileSharing';
 
 interface FileManagerProps {
   files: IPFSFile[];
   onFileRegistered?: () => void;
+  viewMode: 'my-files' | 'shared-with-me';
+  onViewModeChange: (mode: 'my-files' | 'shared-with-me') => void;
 }
 
-const FileManager: React.FC<FileManagerProps> = ({ files, onFileRegistered }) => {
+const FileManager: React.FC<FileManagerProps> = ({ files, onFileRegistered, viewMode, onViewModeChange }) => {
   const { web3, account, isConnected } = useWeb3();
   const [downloadingFiles, setDownloadingFiles] = useState<Set<string>>(new Set());
   const [registeringFiles, setRegisteringFiles] = useState<Set<string>>(new Set());
@@ -24,14 +28,87 @@ const FileManager: React.FC<FileManagerProps> = ({ files, onFileRegistered }) =>
   const [fileAccess, setFileAccess] = useState<Map<string, boolean>>(new Map());
   const [registrationStatus, setRegistrationStatus] = useState<Map<string, boolean>>(new Map());
   const [loadingStatus, setLoadingStatus] = useState<Map<string, boolean>>(new Map());
+  const [sharedFiles, setSharedFiles] = useState<IPFSFile[]>([]);
+  const [loadingSharedFiles, setLoadingSharedFiles] = useState(false);
   const { toast } = useToast();
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (web3 && account && isConnected) {
       contractService.initialize(web3);
       checkFileAccess();
     }
   }, [web3, account, isConnected, files]);
+
+  useEffect(() => {
+    if (viewMode === 'shared-with-me' && account && isConnected) {
+      fetchSharedFiles();
+    }
+  }, [viewMode, account, isConnected]);
+
+  const fetchSharedFiles = async () => {
+    if (!account) return;
+    
+    setLoadingSharedFiles(true);
+    try {
+      // Fetch all public files from database
+      const { data: dbFiles, error } = await supabase
+        .from('files')
+        .select('*')
+        .eq('is_public', true);
+
+      if (error) throw error;
+
+      if (!dbFiles || dbFiles.length === 0) {
+        setSharedFiles([]);
+        return;
+      }
+
+      // Check blockchain access for each file
+      const accessibleFiles: IPFSFile[] = [];
+      const accessMap = new Map<string, boolean>();
+      const registrationMap = new Map<string, boolean>();
+
+      for (const file of dbFiles) {
+        try {
+          const owner = await contractService.getFileOwner(file.ipfs_cid);
+          const isRegistered = owner && owner !== '0x0000000000000000000000000000000000000000';
+          
+          if (isRegistered) {
+            const isOwner = owner.toLowerCase() === account.toLowerCase();
+            const hasAccess = await contractService.checkFileAccess(file.ipfs_cid, account);
+            
+            // Only include files where user has access but is not the owner
+            if (hasAccess && !isOwner) {
+              accessibleFiles.push({
+                hash: file.ipfs_cid,
+                name: file.file_name,
+                size: file.file_size,
+                type: file.file_type,
+                uploadedAt: new Date(file.created_at || Date.now())
+              });
+              accessMap.set(file.ipfs_cid, true);
+              registrationMap.set(file.ipfs_cid, true);
+            }
+          }
+        } catch (error) {
+          console.error('Error checking file access:', error);
+        }
+      }
+
+      setSharedFiles(accessibleFiles);
+      setFileAccess(prev => new Map([...prev, ...accessMap]));
+      setRegistrationStatus(prev => new Map([...prev, ...registrationMap]));
+    } catch (error) {
+      console.error('Error fetching shared files:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch shared files",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingSharedFiles(false);
+    }
+  };
 
   const checkFileAccess = async () => {
     if (!account || !isConnected || files.length === 0) return;
@@ -263,34 +340,62 @@ const FileManager: React.FC<FileManagerProps> = ({ files, onFileRegistered }) =>
     }
   };
 
-  if (files.length === 0) {
-    return (
-      <Card className="glass-card">
-        <CardContent className="pt-6">
-          <div className="text-center py-8">
-            <File className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-400">No files uploaded yet</p>
-            <p className="text-sm text-muted-foreground">Upload your first file to get started</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  const displayFiles = viewMode === 'my-files' ? files : sharedFiles;
+  const isEmpty = displayFiles.length === 0;
 
   return (
     <div className="space-y-6">
       <Card className="glass-card">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-green-400">
-            <HardDrive className="h-5 w-5" />
-            Secure File Manager
-          </CardTitle>
-          <CardDescription>
-            {files.length} file{files.length !== 1 ? 's' : ''} stored on IPFS with advanced blockchain access control
-          </CardDescription>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-green-400">
+                <HardDrive className="h-5 w-5" />
+                Secure File Manager
+              </CardTitle>
+              <CardDescription>
+                {viewMode === 'my-files' 
+                  ? `${files.length} file${files.length !== 1 ? 's' : ''} stored on IPFS` 
+                  : `${sharedFiles.length} file${sharedFiles.length !== 1 ? 's' : ''} shared with you`}
+              </CardDescription>
+            </div>
+          </div>
+          
+          <Tabs value={viewMode} onValueChange={(v) => onViewModeChange(v as any)}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="my-files">
+                <HardDrive className="h-4 w-4 mr-2" />
+                My Files
+              </TabsTrigger>
+              <TabsTrigger value="shared-with-me">
+                <Users className="h-4 w-4 mr-2" />
+                Shared With Me
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </CardHeader>
         <CardContent className="space-y-4">
-          {files.map((file, index) => {
+          {loadingSharedFiles && viewMode === 'shared-with-me' ? (
+            <div className="text-center py-8">
+              <Loader2 className="h-8 w-8 mx-auto text-primary animate-spin mb-4" />
+              <p className="text-muted-foreground">Loading shared files...</p>
+            </div>
+          ) : isEmpty ? (
+            <div className="text-center py-8">
+              <File className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-400">
+                {viewMode === 'my-files' 
+                  ? 'No files uploaded yet' 
+                  : 'No files shared with you yet'}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {viewMode === 'my-files' 
+                  ? 'Upload your first file to get started' 
+                  : 'Files that others share with your wallet will appear here'}
+              </p>
+            </div>
+          ) : (
+            displayFiles.map((file, index) => {
             const hasAccess = fileAccess.get(file.hash);
             const isRegistered = registrationStatus.get(file.hash);
             const isLoading = loadingStatus.get(file.hash);
@@ -439,7 +544,8 @@ const FileManager: React.FC<FileManagerProps> = ({ files, onFileRegistered }) =>
                 {index < files.length - 1 && <Separator className="mt-4" />}
               </div>
             );
-          })}
+          })
+          )}
         </CardContent>
       </Card>
     </div>

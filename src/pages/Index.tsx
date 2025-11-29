@@ -14,6 +14,7 @@ import { Shield, Globe, Lock, LogOut } from 'lucide-react';
 const Index = () => {
   const { user, signOut } = useAuth();
   const [uploadedFiles, setUploadedFiles] = useState<IPFSFile[]>([]);
+  const [viewMode, setViewMode] = useState<'my-files' | 'shared-with-me'>('my-files');
 
   const handleFileUploaded = (file: IPFSFile) => {
     setUploadedFiles(prev => [file, ...prev]);
@@ -106,7 +107,11 @@ const Index = () => {
                 <FileUpload onFileUploaded={handleFileUploaded} />
               </div>
               <div>
-                <FileManager files={uploadedFiles} />
+                <FileManager 
+                  files={uploadedFiles} 
+                  viewMode={viewMode}
+                  onViewModeChange={setViewMode}
+                />
               </div>
             </div>
 
