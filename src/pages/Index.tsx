@@ -6,6 +6,7 @@ import WalletConnection from '@/components/WalletConnection';
 import FileUpload from '@/components/FileUpload';
 import FileManager from '@/components/FileManager';
 import IPFSSettings from '@/components/IPFSSettings';
+import { OrganizationManager } from '@/components/OrganizationManager';
 import { Button } from '@/components/ui/button';
 import { IPFSFile } from '@/services/ipfsService';
 import { Shield, Globe, Lock, LogOut } from 'lucide-react';
@@ -107,6 +108,11 @@ const Index = () => {
               <div>
                 <FileManager files={uploadedFiles} />
               </div>
+            </div>
+
+            {/* Organization Management */}
+            <div className="mt-8">
+              <OrganizationManager />
             </div>
 
             {/* Features */}
