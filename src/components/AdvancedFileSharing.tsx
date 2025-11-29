@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Share2, 
   UserCheck, 
@@ -19,12 +20,16 @@ import {
   Settings,
   Users,
   UserMinus,
-  AlertTriangle
+  AlertTriangle,
+  Building2
 } from 'lucide-react';
 import { useWeb3 } from '@/contexts/Web3Context';
+import { useAuth } from '@/contexts/AuthContext';
 import { contractService } from '@/services/contractService';
 import { useToast } from '@/hooks/use-toast';
 import { IPFSFile } from '@/services/ipfsService';
+import { supabase } from '@/integrations/supabase/client';
+import { OrganizationMember } from './OrganizationManager';
 
 interface AdvancedFileSharingProps {
   file: IPFSFile;
@@ -33,6 +38,7 @@ interface AdvancedFileSharingProps {
 
 const AdvancedFileSharing: React.FC<AdvancedFileSharingProps> = ({ file, onAccessUpdated }) => {
   const { web3, account, isConnected } = useWeb3();
+  const { user } = useAuth();
   const [newUserAddress, setNewUserAddress] = useState('');
   const [authorizedUsers, setAuthorizedUsers] = useState<string[]>([]);
   const [blacklistedUsers, setBlacklistedUsers] = useState<string[]>([]);
@@ -42,14 +48,22 @@ const AdvancedFileSharing: React.FC<AdvancedFileSharingProps> = ({ file, onAcces
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState('access');
+  const [orgMembers, setOrgMembers] = useState<OrganizationMember[]>([]);
+  const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (web3 && account) {
       contractService.initialize(web3);
       loadFilePermissions();
     }
   }, [web3, account, file.hash]);
+
+  useEffect(() => {
+    if (user) {
+      loadOrgMembers();
+    }
+  }, [user]);
 
   const loadFilePermissions = async () => {
     if (!account) return;
@@ -70,6 +84,23 @@ const AdvancedFileSharing: React.FC<AdvancedFileSharingProps> = ({ file, onAcces
       setIsWhitelistMode(whitelistMode);
     } catch (error) {
       console.error('Error loading file permissions:', error);
+    }
+  };
+
+  const loadOrgMembers = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('organization_members')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+      setOrgMembers(data || []);
+    } catch (error) {
+      console.error('Error loading organization members:', error);
     }
   };
 
@@ -283,6 +314,61 @@ const AdvancedFileSharing: React.FC<AdvancedFileSharingProps> = ({ file, onAcces
     }
   };
 
+  const handleToggleMember = (memberId: string) => {
+    setSelectedMembers(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(memberId)) {
+        newSet.delete(memberId);
+      } else {
+        newSet.add(memberId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleGrantAccessToSelected = async () => {
+    if (selectedMembers.size === 0) {
+      toast({
+        title: "No members selected",
+        description: "Please select at least one member",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    const selectedMembersList = orgMembers.filter(m => selectedMembers.has(m.id));
+
+    for (const member of selectedMembersList) {
+      if (!member.wallet_address) {
+        failCount++;
+        continue;
+      }
+
+      try {
+        await contractService.grantFileAccess(file.hash, member.wallet_address, account!);
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to grant access to ${member.name}:`, error);
+        failCount++;
+      }
+    }
+
+    await loadFilePermissions();
+    onAccessUpdated?.();
+    setSelectedMembers(new Set());
+    setIsLoading(false);
+
+    toast({
+      title: "Access granted",
+      description: `Successfully granted access to ${successCount} member(s). ${failCount > 0 ? `Failed: ${failCount}` : ''}`,
+      variant: failCount > 0 ? "destructive" : "default",
+    });
+  };
+
   if (!isConnected) {
     return (
       <Card className="glass-card">
@@ -367,10 +453,14 @@ const AdvancedFileSharing: React.FC<AdvancedFileSharingProps> = ({ file, onAcces
         {/* Tabs for different management sections */}
         {isOwner && (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="access">
                 <Users className="h-4 w-4 mr-1" />
                 Access
+              </TabsTrigger>
+              <TabsTrigger value="organization">
+                <Building2 className="h-4 w-4 mr-1" />
+                Organization
               </TabsTrigger>
               <TabsTrigger value="whitelist">
                 <CheckCircle className="h-4 w-4 mr-1" />
@@ -439,6 +529,75 @@ const AdvancedFileSharing: React.FC<AdvancedFileSharingProps> = ({ file, onAcces
                   </div>
                 </div>
               )}
+            </TabsContent>
+
+            <TabsContent value="organization" className="space-y-4">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Organization Members</Label>
+                  <Badge variant="secondary">{selectedMembers.size} selected</Badge>
+                </div>
+
+                {orgMembers.length > 0 ? (
+                  <>
+                    <div className="space-y-2 max-h-[400px] overflow-y-auto border rounded-lg p-2">
+                      {orgMembers.map((member) => (
+                        <div
+                          key={member.id}
+                          className="flex items-center justify-between p-3 bg-black/20 rounded-lg hover:bg-black/30 transition-colors"
+                        >
+                          <div className="flex items-center gap-3 flex-1">
+                            <Checkbox
+                              checked={selectedMembers.has(member.id)}
+                              onCheckedChange={() => handleToggleMember(member.id)}
+                              disabled={!member.wallet_address}
+                            />
+                            <div className="flex-1">
+                              <p className="font-medium">{member.name}</p>
+                              <div className="flex gap-2 mt-1">
+                                <code className="text-xs bg-muted px-2 py-0.5 rounded">
+                                  {member.employee_id}
+                                </code>
+                                {member.department && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {member.department}
+                                  </Badge>
+                                )}
+                                {member.wallet_address && (
+                                  <code className="text-xs text-muted-foreground">
+                                    {member.wallet_address.slice(0, 6)}...{member.wallet_address.slice(-4)}
+                                  </code>
+                                )}
+                              </div>
+                              {!member.wallet_address && (
+                                <p className="text-xs text-yellow-500 mt-1">
+                                  No wallet address
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      onClick={handleGrantAccessToSelected}
+                      disabled={isLoading || selectedMembers.size === 0}
+                      className="w-full cosmic-gradient"
+                    >
+                      <UserCheck className="mr-2 h-4 w-4" />
+                      Grant Access to Selected ({selectedMembers.size})
+                    </Button>
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Building2 className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    <p>No organization members found</p>
+                    <p className="text-xs mt-1">
+                      Go to Settings to import organization members
+                    </p>
+                  </div>
+                )}
+              </div>
             </TabsContent>
 
             <TabsContent value="whitelist" className="space-y-4">
