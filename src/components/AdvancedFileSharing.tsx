@@ -117,6 +117,25 @@ const AdvancedFileSharing: React.FC<AdvancedFileSharingProps> = ({ file, onAcces
     setIsLoading(true);
     try {
       await contractService.grantFileAccess(file.hash, newUserAddress.trim(), account);
+      
+      // Sync to database
+      if (user) {
+        const { data: dbFile } = await supabase
+          .from('files')
+          .select('id')
+          .eq('ipfs_cid', file.hash)
+          .single();
+
+        if (dbFile) {
+          await supabase.from('file_access').insert({
+            file_id: dbFile.id,
+            user_address: newUserAddress.trim().toLowerCase(),
+            access_type: 'authorized',
+            granted_by: user.id,
+          });
+        }
+      }
+      
       setNewUserAddress('');
       await loadFilePermissions();
       onAccessUpdated?.();
@@ -142,6 +161,25 @@ const AdvancedFileSharing: React.FC<AdvancedFileSharingProps> = ({ file, onAcces
     setIsLoading(true);
     try {
       await contractService.revokeFileAccess(file.hash, userAddress, account);
+      
+      // Sync to database
+      if (user) {
+        const { data: dbFile } = await supabase
+          .from('files')
+          .select('id')
+          .eq('ipfs_cid', file.hash)
+          .single();
+
+        if (dbFile) {
+          await supabase
+            .from('file_access')
+            .update({ is_active: false, revoked_at: new Date().toISOString() })
+            .eq('file_id', dbFile.id)
+            .eq('user_address', userAddress.toLowerCase())
+            .eq('access_type', 'authorized');
+        }
+      }
+      
       await loadFilePermissions();
       onAccessUpdated?.();
       
@@ -350,6 +388,25 @@ const AdvancedFileSharing: React.FC<AdvancedFileSharingProps> = ({ file, onAcces
 
       try {
         await contractService.grantFileAccess(file.hash, member.wallet_address, account!);
+        
+        // Sync to database
+        if (user) {
+          const { data: dbFile } = await supabase
+            .from('files')
+            .select('id')
+            .eq('ipfs_cid', file.hash)
+            .maybeSingle();
+
+          if (dbFile) {
+            await supabase.from('file_access').insert({
+              file_id: dbFile.id,
+              user_address: member.wallet_address.toLowerCase(),
+              access_type: 'authorized',
+              granted_by: user.id,
+            });
+          }
+        }
+        
         successCount++;
       } catch (error) {
         console.error(`Failed to grant access to ${member.name}:`, error);

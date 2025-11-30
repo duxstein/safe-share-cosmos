@@ -14,6 +14,88 @@ export type Database = {
   }
   public: {
     Tables: {
+      file_access: {
+        Row: {
+          access_type: string
+          file_id: string
+          granted_at: string
+          granted_by: string | null
+          id: string
+          is_active: boolean
+          revoked_at: string | null
+          user_address: string
+        }
+        Insert: {
+          access_type: string
+          file_id: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          is_active?: boolean
+          revoked_at?: string | null
+          user_address: string
+        }
+        Update: {
+          access_type?: string
+          file_id?: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          is_active?: boolean
+          revoked_at?: string | null
+          user_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_access_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      file_access_history: {
+        Row: {
+          access_type: string
+          accessed_at: string
+          file_id: string
+          id: string
+          ip_address: string | null
+          user_address: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          access_type: string
+          accessed_at?: string
+          file_id: string
+          id?: string
+          ip_address?: string | null
+          user_address: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          access_type?: string
+          accessed_at?: string
+          file_id?: string
+          id?: string
+          ip_address?: string | null
+          user_address?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_access_history_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       file_analytics: {
         Row: {
           average_rating: number | null

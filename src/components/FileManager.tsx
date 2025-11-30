@@ -50,48 +50,70 @@ const FileManager: React.FC<FileManagerProps> = ({ files, onFileRegistered, view
     
     setLoadingSharedFiles(true);
     try {
-      // Fetch all public files from database
-      const { data: dbFiles, error } = await supabase
-        .from('files')
-        .select('*')
-        .eq('is_public', true);
+      // First, get user's profile to find their wallet address
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('wallet_address')
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .maybeSingle();
 
-      if (error) throw error;
+      const userWalletAddress = profile?.wallet_address || account;
 
-      if (!dbFiles || dbFiles.length === 0) {
+      // Query file_access table for files shared with this user
+      const { data: accessRecords, error } = await supabase
+        .from('file_access')
+        .select(`
+          file_id,
+          files:file_id (
+            id,
+            ipfs_cid,
+            file_name,
+            file_size,
+            file_type,
+            created_at,
+            user_id
+          )
+        `)
+        .eq('user_address', userWalletAddress.toLowerCase())
+        .eq('access_type', 'authorized')
+        .eq('is_active', true);
+
+      if (error) {
+        console.error('Error fetching access records:', error);
+        throw error;
+      }
+
+      if (!accessRecords || accessRecords.length === 0) {
         setSharedFiles([]);
         return;
       }
 
-      // Check blockchain access for each file
+      // Convert to IPFSFile format and verify blockchain access
       const accessibleFiles: IPFSFile[] = [];
       const accessMap = new Map<string, boolean>();
       const registrationMap = new Map<string, boolean>();
 
-      for (const file of dbFiles) {
+      for (const record of accessRecords) {
+        const file = record.files as any;
+        if (!file) continue;
+
         try {
-          const owner = await contractService.getFileOwner(file.ipfs_cid);
-          const isRegistered = owner && owner !== '0x0000000000000000000000000000000000000000';
+          // Verify blockchain access
+          const hasAccess = await contractService.checkFileAccess(file.ipfs_cid, account);
           
-          if (isRegistered) {
-            const isOwner = owner.toLowerCase() === account.toLowerCase();
-            const hasAccess = await contractService.checkFileAccess(file.ipfs_cid, account);
-            
-            // Only include files where user has access but is not the owner
-            if (hasAccess && !isOwner) {
-              accessibleFiles.push({
-                hash: file.ipfs_cid,
-                name: file.file_name,
-                size: file.file_size,
-                type: file.file_type,
-                uploadedAt: new Date(file.created_at || Date.now())
-              });
-              accessMap.set(file.ipfs_cid, true);
-              registrationMap.set(file.ipfs_cid, true);
-            }
+          if (hasAccess) {
+            accessibleFiles.push({
+              hash: file.ipfs_cid,
+              name: file.file_name,
+              size: file.file_size,
+              type: file.file_type,
+              uploadedAt: new Date(file.created_at || Date.now())
+            });
+            accessMap.set(file.ipfs_cid, true);
+            registrationMap.set(file.ipfs_cid, true);
           }
         } catch (error) {
-          console.error('Error checking file access:', error);
+          console.error('Error verifying blockchain access:', error);
         }
       }
 
@@ -208,6 +230,23 @@ const FileManager: React.FC<FileManagerProps> = ({ files, onFileRegistered, view
       link.target = '_blank';
       link.click();
 
+      // Log access history
+      const { data: dbFile } = await supabase
+        .from('files')
+        .select('id')
+        .eq('ipfs_cid', file.hash)
+        .maybeSingle();
+
+      if (dbFile && account) {
+        const { data: user } = await supabase.auth.getUser();
+        await supabase.from('file_access_history').insert({
+          file_id: dbFile.id,
+          user_address: account.toLowerCase(),
+          user_id: user.user?.id,
+          access_type: 'download',
+        });
+      }
+
       toast({
         title: "Download started",
         description: `Downloading ${file.name}`,
@@ -228,7 +267,7 @@ const FileManager: React.FC<FileManagerProps> = ({ files, onFileRegistered, view
     }
   };
 
-  const openInGateway = (file: IPFSFile) => {
+  const openInGateway = async (file: IPFSFile) => {
     const hasAccess = fileAccess.get(file.hash);
     const isRegistered = registrationStatus.get(file.hash);
     
@@ -239,6 +278,25 @@ const FileManager: React.FC<FileManagerProps> = ({ files, onFileRegistered, view
         variant: "destructive",
       });
       return;
+    }
+
+    // Log access history
+    if (account) {
+      const { data: dbFile } = await supabase
+        .from('files')
+        .select('id')
+        .eq('ipfs_cid', file.hash)
+        .maybeSingle();
+
+      if (dbFile) {
+        const { data: user } = await supabase.auth.getUser();
+        await supabase.from('file_access_history').insert({
+          file_id: dbFile.id,
+          user_address: account.toLowerCase(),
+          user_id: user.user?.id,
+          access_type: 'view',
+        });
+      }
     }
 
     const url = ipfsService.getFileUrl(file.hash);
