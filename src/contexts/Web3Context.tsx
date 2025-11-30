@@ -2,6 +2,22 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import Web3 from 'web3';
 import detectEthereumProvider from '@metamask/detect-provider';
+import { supabase } from '@/integrations/supabase/client';
+
+const syncWalletToProfile = async (address: string) => {
+  try {
+    const { data } = await supabase.auth.getUser();
+    const user = data.user;
+    if (!user || !address) return;
+
+    await supabase
+      .from('profiles')
+      .update({ wallet_address: address.toLowerCase() })
+      .eq('user_id', user.id);
+  } catch (error) {
+    console.error('Failed to sync wallet address to profile:', error);
+  }
+};
 
 interface Web3ContextType {
   web3: Web3 | null;
@@ -83,6 +99,7 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
       setWeb3(web3Instance);
       setAccount(accounts[0]);
       setIsConnected(true);
+      await syncWalletToProfile(accounts[0]);
       
       // Store connection state
       localStorage.setItem('walletConnected', 'true');
@@ -141,6 +158,7 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
               setWeb3(web3Instance);
               setAccount(savedAccount);
               setIsConnected(true);
+              await syncWalletToProfile(savedAccount);
               console.log('Auto-connected to:', savedAccount);
             } else {
               // Clear stale connection data
@@ -170,6 +188,7 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
         } else if (accounts[0] !== account) {
           setAccount(accounts[0]);
           localStorage.setItem('walletAccount', accounts[0]);
+          syncWalletToProfile(accounts[0]);
         }
       };
 

@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +8,8 @@ import { ipfsService, IPFSFile } from '@/services/ipfsService';
 import { contractService } from '@/services/contractService';
 import { useWeb3 } from '@/contexts/Web3Context';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 interface FileUploadProps {
   onFileUploaded: (file: IPFSFile) => void;
@@ -16,6 +17,7 @@ interface FileUploadProps {
 
 const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded }) => {
   const { web3, account, isConnected } = useWeb3();
+  const { user } = useAuth();
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<IPFSFile | null>(null);
@@ -37,36 +39,61 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded }) => {
     try {
       // Step 1: Upload to IPFS
       const progressInterval = setInterval(() => {
-        setUploadProgress(prev => Math.min(prev + 10, 90));
+        setUploadProgress((prev) => Math.min(prev + 10, 90));
       }, 200);
 
       const ipfsFile = await ipfsService.uploadFile(file);
-      
+
       clearInterval(progressInterval);
       setUploadProgress(100);
-      
+
       // Don't auto-register, let user choose
       setUploadedFile(ipfsFile);
       onFileUploaded(ipfsFile);
 
+      // Store metadata in Supabase so it can be discovered later
+      if (user) {
+        try {
+          const mimeType = file.type || 'application/octet-stream';
+          await supabase.from('files').insert({
+            file_name: file.name,
+            file_size: file.size,
+            file_type: file.type || 'unknown',
+            mime_type: mimeType,
+            title: file.name,
+            description: null,
+            tags: null,
+            categories: null,
+            thumbnail_url: null,
+            ipfs_cid: ipfsFile.hash,
+            cdn_url: null,
+            blockchain_tx_id: null,
+            license: null,
+            user_id: user.id,
+            is_public: true,
+          });
+        } catch (error) {
+          console.error('Failed to save file metadata:', error);
+        }
+      }
+
       if (isConnected) {
         toast({
-          title: "File uploaded to IPFS!",
+          title: 'File uploaded to IPFS!',
           description: `${file.name} has been uploaded. You can register it on the blockchain for secure access control.`,
         });
       } else {
         toast({
-          title: "File uploaded!",
+          title: 'File uploaded!',
           description: `${file.name} has been uploaded to IPFS. Connect your wallet to enable secure access control.`,
         });
       }
-
     } catch (error) {
       console.error('Upload error:', error);
       toast({
-        title: "Upload failed",
-        description: "There was an error uploading your file. Please try again.",
-        variant: "destructive",
+        title: 'Upload failed',
+        description: 'There was an error uploading your file. Please try again.',
+        variant: 'destructive',
       });
     } finally {
       setIsUploading(false);
@@ -95,8 +122,10 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded }) => {
           Secure File Upload
         </CardTitle>
         <CardDescription>
-          Upload files to IPFS with blockchain-based access control. 
-          {isConnected ? ' Files can be registered for secure sharing after upload.' : ' Connect your wallet for secure access control.'}
+          Upload files to IPFS with blockchain-based access control.
+          {isConnected
+            ? ' Files can be registered for secure sharing after upload.'
+            : ' Connect your wallet for secure access control.'}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -104,14 +133,14 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded }) => {
           {...getRootProps()}
           className={`
             border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all
-            ${isDragActive 
-              ? 'border-cyan-400 bg-cyan-400/10' 
+            ${isDragActive
+              ? 'border-cyan-400 bg-cyan-400/10'
               : 'border-gray-600 hover:border-cyan-500 hover:bg-cyan-500/5'
             }
           `}
         >
           <input {...getInputProps()} />
-          
+
           {isUploading ? (
             <div className="space-y-4">
               <Loader2 className="h-12 w-12 mx-auto text-cyan-400 animate-spin" />
@@ -155,7 +184,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUploaded }) => {
             </div>
           )}
         </div>
-        
+
         {!isUploading && !uploadedFile && (
           <Button
             onClick={() => {
