@@ -198,56 +198,56 @@ const AdvancedFileSharing: React.FC<AdvancedFileSharingProps> = ({ file, onAcces
     }
   };
 
-201:   const handleBlacklistUser = async () => {
-202:     if (!account || !newUserAddress.trim()) {
-203:       toast({
-204:         title: "Invalid input",
-205:         description: "Please enter a valid Ethereum address",
-206:         variant: "destructive",
-207:       });
-208:       return;
-209:     }
-210: 
-211:     setIsLoading(true);
-212:     try {
-213:       await contractService.addToBlacklist(file.hash, newUserAddress.trim(), account);
-214: 
-215:       // Sync blacklist to database
-216:       if (user) {
-217:         const { data: dbFile } = await supabase
-218:           .from('files')
-219:           .select('id')
-220:           .eq('ipfs_cid', file.hash)
-221:           .maybeSingle();
-222: 
-223:         if (dbFile) {
-224:           await supabase.from('file_access').insert({
-225:             file_id: dbFile.id,
-226:             user_address: newUserAddress.trim().toLowerCase(),
-227:             access_type: 'blacklisted',
-228:             granted_by: user.id,
-229:           });
-230:         }
-231:       }
-232: 
-233:       setNewUserAddress('');
-234:       await loadFilePermissions();
-235:       onAccessUpdated?.();
-236:       
-237:       toast({
-238:         title: "User blacklisted",
-239:         description: `User ${newUserAddress.slice(0, 6)}...${newUserAddress.slice(-4)} has been blacklisted`,
-240:       });
-241:     } catch (error) {
-242:       toast({
-243:         title: "Failed to blacklist user",
-244:         description: "Please try again or check the wallet connection",
-245:         variant: "destructive",
-246:       });
-247:     } finally {
-248:       setIsLoading(false);
-249:     }
-250:   };
+  const handleBlacklistUser = async () => {
+    if (!account || !newUserAddress.trim()) {
+      toast({
+        title: "Invalid input",
+        description: "Please enter a valid Ethereum address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await contractService.addToBlacklist(file.hash, newUserAddress.trim(), account);
+
+      // Sync blacklist to database
+      if (user) {
+        const { data: dbFile } = await supabase
+          .from('files')
+          .select('id')
+          .eq('ipfs_cid', file.hash)
+          .maybeSingle();
+
+        if (dbFile) {
+          await supabase.from('file_access').insert({
+            file_id: dbFile.id,
+            user_address: newUserAddress.trim().toLowerCase(),
+            access_type: 'blacklisted',
+            granted_by: user.id,
+          });
+        }
+      }
+
+      setNewUserAddress('');
+      await loadFilePermissions();
+      onAccessUpdated?.();
+      
+      toast({
+        title: "User blacklisted",
+        description: `User ${newUserAddress.slice(0, 6)}...${newUserAddress.slice(-4)} has been blacklisted`,
+      });
+    } catch (error) {
+      toast({
+        title: "Failed to blacklist user",
+        description: "Please try again or check the wallet connection",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleRemoveFromBlacklist = async (userAddress: string) => {
     if (!account) return;
@@ -273,99 +273,99 @@ const AdvancedFileSharing: React.FC<AdvancedFileSharingProps> = ({ file, onAcces
     }
   };
 
-257:   const handleWhitelistUser = async () => {
-258:     if (!account || !newUserAddress.trim()) {
-259:       toast({
-260:         title: "Invalid input",
-261:         description: "Please enter a valid Ethereum address",
-262:         variant: "destructive",
-263:       });
-264:       return;
-265:     }
-266: 
-267:     setIsLoading(true);
-268:     try {
-269:       await contractService.addToWhitelist(file.hash, newUserAddress.trim(), account);
-270: 
-271:       // Sync whitelist to database
-272:       if (user) {
-273:         const { data: dbFile } = await supabase
-274:           .from('files')
-275:           .select('id')
-276:           .eq('ipfs_cid', file.hash)
-277:           .maybeSingle();
-278: 
-279:         if (dbFile) {
-280:           await supabase.from('file_access').insert({
-281:             file_id: dbFile.id,
-282:             user_address: newUserAddress.trim().toLowerCase(),
-283:             access_type: 'whitelisted',
-284:             granted_by: user.id,
-285:           });
-286:         }
-287:       }
-288: 
-289:       setNewUserAddress('');
-290:       await loadFilePermissions();
-291:       onAccessUpdated?.();
-292:       
-293:       toast({
-294:         title: "User whitelisted",
-295:         description: `User ${newUserAddress.slice(0, 6)}...${newUserAddress.slice(-4)} has been added to whitelist`,
-296:       });
-297:     } catch (error) {
-298:       toast({
-299:         title: "Failed to whitelist user",
-300:         description: "Please try again or check the wallet connection",
-301:         variant: "destructive",
-302:       });
-303:     } finally {
-304:       setIsLoading(false);
-305:     }
-306:   };
+  const handleWhitelistUser = async () => {
+    if (!account || !newUserAddress.trim()) {
+      toast({
+        title: "Invalid input",
+        description: "Please enter a valid Ethereum address",
+        variant: "destructive",
+      });
+      return;
+    }
 
-289:   const handleRemoveFromWhitelist = async (userAddress: string) => {
-290:     if (!account) return;
-291: 
-292:     setIsLoading(true);
-293:     try {
-294:       await contractService.removeFromWhitelist(file.hash, userAddress, account);
-295: 
-296:       // Sync removal in database
-297:       if (user) {
-298:         const { data: dbFile } = await supabase
-299:           .from('files')
-300:           .select('id')
-301:           .eq('ipfs_cid', file.hash)
-302:           .maybeSingle();
-303: 
-304:         if (dbFile) {
-305:           await supabase
-306:             .from('file_access')
-307:             .update({ is_active: false, revoked_at: new Date().toISOString() })
-308:             .eq('file_id', dbFile.id)
-309:             .eq('user_address', userAddress.toLowerCase())
-310:             .eq('access_type', 'whitelisted');
-311:         }
-312:       }
-313: 
-314:       await loadFilePermissions();
-315:       onAccessUpdated?.();
-316:       
-317:       toast({
-318:         title: "User removed from whitelist",
-319:         description: `User ${userAddress.slice(0, 6)}...${userAddress.slice(-4)} removed from whitelist`,
-320:       });
-321:     } catch (error) {
-322:       toast({
-323:         title: "Failed to remove from whitelist",
-324:         description: "Please try again or check the wallet connection",
-325:         variant: "destructive",
-326:       });
-327:     } finally {
-328:       setIsLoading(false);
-329:     }
-330:   };
+    setIsLoading(true);
+    try {
+      await contractService.addToWhitelist(file.hash, newUserAddress.trim(), account);
+
+      // Sync whitelist to database
+      if (user) {
+        const { data: dbFile } = await supabase
+          .from('files')
+          .select('id')
+          .eq('ipfs_cid', file.hash)
+          .maybeSingle();
+
+        if (dbFile) {
+          await supabase.from('file_access').insert({
+            file_id: dbFile.id,
+            user_address: newUserAddress.trim().toLowerCase(),
+            access_type: 'whitelisted',
+            granted_by: user.id,
+          });
+        }
+      }
+
+      setNewUserAddress('');
+      await loadFilePermissions();
+      onAccessUpdated?.();
+      
+      toast({
+        title: "User whitelisted",
+        description: `User ${newUserAddress.slice(0, 6)}...${newUserAddress.slice(-4)} has been added to whitelist`,
+      });
+    } catch (error) {
+      toast({
+        title: "Failed to whitelist user",
+        description: "Please try again or check the wallet connection",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRemoveFromWhitelist = async (userAddress: string) => {
+    if (!account) return;
+
+    setIsLoading(true);
+    try {
+      await contractService.removeFromWhitelist(file.hash, userAddress, account);
+
+      // Sync removal in database
+      if (user) {
+        const { data: dbFile } = await supabase
+          .from('files')
+          .select('id')
+          .eq('ipfs_cid', file.hash)
+          .maybeSingle();
+
+        if (dbFile) {
+          await supabase
+            .from('file_access')
+            .update({ is_active: false, revoked_at: new Date().toISOString() })
+            .eq('file_id', dbFile.id)
+            .eq('user_address', userAddress.toLowerCase())
+            .eq('access_type', 'whitelisted');
+        }
+      }
+
+      await loadFilePermissions();
+      onAccessUpdated?.();
+      
+      toast({
+        title: "User removed from whitelist",
+        description: `User ${userAddress.slice(0, 6)}...${userAddress.slice(-4)} removed from whitelist`,
+      });
+    } catch (error) {
+      toast({
+        title: "Failed to remove from whitelist",
+        description: "Please try again or check the wallet connection",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleToggleWhitelistMode = async () => {
     if (!account) return;
