@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import Web3 from 'web3';
 import detectEthereumProvider from '@metamask/detect-provider';
