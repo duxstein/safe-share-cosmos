@@ -1,4 +1,4 @@
-
+import React from 'react';
 import './App.css';
 import { Toaster } from "@/components/ui/toaster";
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
