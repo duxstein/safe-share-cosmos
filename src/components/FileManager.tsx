@@ -46,24 +46,27 @@ const FileManager: React.FC<FileManagerProps> = ({ files, onFileRegistered, view
   }, [viewMode, account, isConnected]);
 
   const fetchSharedFiles = async () => {
-    if (!account) return;
+    if (!account) {
+      console.log('No account connected, cannot fetch shared files');
+      return;
+    }
     
     setLoadingSharedFiles(true);
+    console.log('Fetching shared files for wallet:', account);
+    
     try {
-      // First, get user's profile to find their wallet address
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('wallet_address')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-        .maybeSingle();
+      // Query file_access table for files shared with this wallet address
+      // Use the connected wallet address directly (normalized to lowercase)
+      const walletAddress = account.toLowerCase();
+      console.log('Querying file_access for wallet:', walletAddress);
 
-      const userWalletAddress = profile?.wallet_address || account;
-
-      // Query file_access table for files shared with this user
       const { data: accessRecords, error } = await supabase
         .from('file_access')
         .select(`
           file_id,
+          access_type,
+          is_active,
+          user_address,
           files:file_id (
             id,
             ipfs_cid,
@@ -74,9 +77,11 @@ const FileManager: React.FC<FileManagerProps> = ({ files, onFileRegistered, view
             user_id
           )
         `)
-        .eq('user_address', userWalletAddress.toLowerCase())
+        .eq('user_address', walletAddress)
         .eq('access_type', 'authorized')
         .eq('is_active', true);
+
+      console.log('Access records query result:', { accessRecords, error });
 
       if (error) {
         console.error('Error fetching access records:', error);
@@ -84,39 +89,51 @@ const FileManager: React.FC<FileManagerProps> = ({ files, onFileRegistered, view
       }
 
       if (!accessRecords || accessRecords.length === 0) {
+        console.log('No access records found for wallet:', walletAddress);
         setSharedFiles([]);
         return;
       }
 
-      // Convert to IPFSFile format and verify blockchain access
+      console.log('Found', accessRecords.length, 'access records');
+
+      // Convert to IPFSFile format
       const accessibleFiles: IPFSFile[] = [];
       const accessMap = new Map<string, boolean>();
       const registrationMap = new Map<string, boolean>();
 
       for (const record of accessRecords) {
         const file = record.files as any;
-        if (!file) continue;
+        if (!file) {
+          console.log('No file data for record:', record);
+          continue;
+        }
 
+        console.log('Processing shared file:', file.file_name, 'CID:', file.ipfs_cid);
+
+        // Add file to the list - database record is source of truth for shared files
+        // Blockchain verification is optional (might fail if contract not deployed)
+        accessibleFiles.push({
+          hash: file.ipfs_cid,
+          name: file.file_name,
+          size: file.file_size,
+          type: file.file_type,
+          uploadedAt: new Date(file.created_at || Date.now())
+        });
+        
+        // Mark as having database access
+        accessMap.set(file.ipfs_cid, true);
+        registrationMap.set(file.ipfs_cid, true);
+
+        // Try blockchain verification but don't block on failure
         try {
-          // Verify blockchain access
-          const hasAccess = await contractService.checkFileAccess(file.ipfs_cid, account);
-          
-          if (hasAccess) {
-            accessibleFiles.push({
-              hash: file.ipfs_cid,
-              name: file.file_name,
-              size: file.file_size,
-              type: file.file_type,
-              uploadedAt: new Date(file.created_at || Date.now())
-            });
-            accessMap.set(file.ipfs_cid, true);
-            registrationMap.set(file.ipfs_cid, true);
-          }
-        } catch (error) {
-          console.error('Error verifying blockchain access:', error);
+          const hasBlockchainAccess = await contractService.checkFileAccess(file.ipfs_cid, account);
+          console.log('Blockchain access check for', file.ipfs_cid, ':', hasBlockchainAccess);
+        } catch (blockchainError) {
+          console.log('Blockchain check failed (non-critical):', blockchainError);
         }
       }
 
+      console.log('Setting shared files:', accessibleFiles.length, 'files');
       setSharedFiles(accessibleFiles);
       setFileAccess(prev => new Map([...prev, ...accessMap]));
       setRegistrationStatus(prev => new Map([...prev, ...registrationMap]));

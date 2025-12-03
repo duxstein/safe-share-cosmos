@@ -114,24 +114,60 @@ const AdvancedFileSharing: React.FC<AdvancedFileSharingProps> = ({ file, onAcces
       return;
     }
 
+    const targetAddress = newUserAddress.trim().toLowerCase();
+    console.log('Granting access to:', targetAddress, 'for file:', file.hash);
+
     setIsLoading(true);
     try {
+      // First, grant access on blockchain
       await contractService.grantFileAccess(file.hash, newUserAddress.trim(), account);
+      console.log('Blockchain access granted');
       
       // Sync to database
       if (user) {
-        const { data: dbFile } = await supabase
+        // Find the file in database by IPFS CID
+        const { data: dbFile, error: fileError } = await supabase
           .from('files')
           .select('id')
           .eq('ipfs_cid', file.hash)
-          .single();
+          .maybeSingle();
+
+        console.log('Database file lookup:', { dbFile, fileError });
 
         if (dbFile) {
-          await supabase.from('file_access').insert({
-            file_id: dbFile.id,
-            user_address: newUserAddress.trim().toLowerCase(),
-            access_type: 'authorized',
-            granted_by: user.id,
+          // Check if access record already exists
+          const { data: existingAccess } = await supabase
+            .from('file_access')
+            .select('id')
+            .eq('file_id', dbFile.id)
+            .eq('user_address', targetAddress)
+            .eq('access_type', 'authorized')
+            .maybeSingle();
+
+          if (existingAccess) {
+            // Update existing record to be active
+            const { error: updateError } = await supabase
+              .from('file_access')
+              .update({ is_active: true, revoked_at: null })
+              .eq('id', existingAccess.id);
+            console.log('Updated existing access record:', { updateError });
+          } else {
+            // Insert new access record
+            const { error: insertError } = await supabase.from('file_access').insert({
+              file_id: dbFile.id,
+              user_address: targetAddress,
+              access_type: 'authorized',
+              granted_by: user.id,
+              is_active: true,
+            });
+            console.log('Inserted new access record:', { insertError });
+          }
+        } else {
+          console.warn('File not found in database. Access granted on blockchain only.');
+          toast({
+            title: "Warning",
+            description: "File not found in database. Access granted on blockchain only.",
+            variant: "default",
           });
         }
       }
@@ -145,6 +181,7 @@ const AdvancedFileSharing: React.FC<AdvancedFileSharingProps> = ({ file, onAcces
         description: `User ${newUserAddress.slice(0, 6)}...${newUserAddress.slice(-4)} can now access this file`,
       });
     } catch (error) {
+      console.error('Grant access error:', error);
       toast({
         title: "Failed to grant access",
         description: "Please try again or check the wallet connection",
