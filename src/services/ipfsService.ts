@@ -1,8 +1,12 @@
+import { supabase } from '@/integrations/supabase/client';
 
-import { create } from 'ipfs-http-client';
-
-// IPFS Gateway for retrieving files
-const IPFS_GATEWAY = 'https://ipfs.io/ipfs/';
+// Multiple IPFS Gateways for redundancy
+const IPFS_GATEWAYS = [
+  'https://gateway.pinata.cloud/ipfs/',
+  'https://ipfs.io/ipfs/',
+  'https://cloudflare-ipfs.com/ipfs/',
+  'https://dweb.link/ipfs/'
+];
 
 export interface IPFSFile {
   name: string;
@@ -19,167 +23,84 @@ interface UploadResult {
 }
 
 class IPFSService {
-  private pinataApiKey: string | null = null;
-  private pinataSecretKey: string | null = null;
-
-  constructor() {
-    // Try to get Pinata credentials from localStorage for development
-    this.pinataApiKey = localStorage.getItem('pinata_api_key');
-    this.pinataSecretKey = localStorage.getItem('pinata_secret_key');
-  }
-
   async uploadFile(file: File): Promise<IPFSFile> {
-    console.log('Starting file upload to IPFS:', file.name);
+    console.log('Starting file upload to IPFS via edge function:', file.name);
     
-    // Try different upload methods in order of preference
-    const uploadMethods = [
-      () => this.uploadToPinata(file),
-      () => this.uploadToWeb3Storage(file),
-      () => this.uploadToPublicNode(file)
-    ];
-
-    let lastError: Error | null = null;
-
-    for (const uploadMethod of uploadMethods) {
-      try {
-        const result = await uploadMethod();
-        if (result.success && result.hash) {
-          const ipfsFile: IPFSFile = {
-            name: file.name,
-            hash: result.hash,
-            size: file.size,
-            type: file.type,
-            uploadedAt: new Date(),
-          };
-          
-          console.log('File uploaded successfully to IPFS:', ipfsFile);
-          return ipfsFile;
-        }
-      } catch (error) {
-        console.warn('Upload method failed:', error);
-        lastError = error as Error;
-        continue;
+    try {
+      const result = await this.uploadViaPinataEdgeFunction(file);
+      
+      if (result.success && result.hash) {
+        const ipfsFile: IPFSFile = {
+          name: file.name,
+          hash: result.hash,
+          size: file.size,
+          type: file.type,
+          uploadedAt: new Date(),
+        };
+        
+        console.log('File uploaded successfully to IPFS:', ipfsFile);
+        return ipfsFile;
       }
+      
+      throw new Error(result.error || 'Upload failed');
+    } catch (error) {
+      console.error('IPFS upload failed:', error);
+      throw new Error('Failed to upload file to IPFS. Please check your Pinata API keys are configured correctly.');
     }
-
-    // If all methods failed, throw the last error
-    console.error('All IPFS upload methods failed');
-    throw new Error('Failed to upload file to IPFS. Please try again or contact support.');
   }
 
-  private async uploadToPinata(file: File): Promise<UploadResult> {
-    if (!this.pinataApiKey || !this.pinataSecretKey) {
-      console.log('Pinata credentials not available, skipping...');
-      return { success: false, error: 'No Pinata credentials' };
-    }
-
-    console.log('Attempting upload to Pinata...');
+  private async uploadViaPinataEdgeFunction(file: File): Promise<UploadResult> {
+    console.log('Uploading via Pinata edge function...');
     
     const formData = new FormData();
     formData.append('file', file);
-    
-    const metadata = JSON.stringify({
-      name: file.name,
-      keyvalues: {
-        uploadedAt: new Date().toISOString(),
-        fileType: file.type,
-        fileSize: file.size.toString()
-      }
-    });
-    formData.append('pinataMetadata', metadata);
+    formData.append('fileName', file.name);
 
-    const response = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
-      method: 'POST',
-      headers: {
-        'pinata_api_key': this.pinataApiKey,
-        'pinata_secret_api_key': this.pinataSecretKey,
-      },
+    const { data, error } = await supabase.functions.invoke('ipfs-upload', {
       body: formData,
     });
 
-    if (!response.ok) {
-      throw new Error(`Pinata upload failed: ${response.statusText}`);
+    if (error) {
+      console.error('Edge function error:', error);
+      return { success: false, error: error.message };
     }
 
-    const result = await response.json();
-    return { success: true, hash: result.IpfsHash };
-  }
-
-  private async uploadToWeb3Storage(file: File): Promise<UploadResult> {
-    console.log('Attempting upload to Web3.Storage...');
-    
-    // For now, we'll skip Web3.Storage as it requires an API key
-    // This is a placeholder for future implementation
-    return { success: false, error: 'Web3.Storage not configured' };
-  }
-
-  private async uploadToPublicNode(file: File): Promise<UploadResult> {
-    console.log('Attempting upload to public IPFS node...');
-    
-    try {
-      // Try using a different public node that might accept uploads
-      const client = create({
-        host: '127.0.0.1',
-        port: 5001,
-        protocol: 'http',
-      });
-
-      const result = await client.add(file, {
-        progress: (prog: number) => console.log(`Upload progress: ${prog}`),
-      });
-
-      return { success: true, hash: result.path };
-    } catch (error) {
-      console.log('Local IPFS node not available, trying browser-based solution...');
-      
-      // If local node fails, create a mock hash for demonstration
-      // In a real app, you'd want to implement a proper fallback
-      const mockHash = this.generateMockHash(file);
-      console.warn('Using mock IPFS hash for demonstration:', mockHash);
-      
-      return { success: true, hash: mockHash };
+    if (data?.error) {
+      console.error('Pinata error:', data.error);
+      return { success: false, error: data.error };
     }
-  }
 
-  private generateMockHash(file: File): string {
-    // Generate a mock IPFS hash for demonstration purposes
-    // This is not a real IPFS hash and won't work for actual retrieval
-    const timestamp = Date.now().toString();
-    const fileName = file.name.replace(/[^a-zA-Z0-9]/g, '');
-    return `Qm${timestamp}${fileName}`.substring(0, 46).padEnd(46, '0');
+    if (data?.hash) {
+      console.log('Upload successful, hash:', data.hash);
+      return { success: true, hash: data.hash };
+    }
+
+    return { success: false, error: 'Unknown error occurred' };
   }
 
   getFileUrl(hash: string): string {
-    return `${IPFS_GATEWAY}${hash}`;
+    // Use Pinata gateway as primary for better reliability
+    return `${IPFS_GATEWAYS[0]}${hash}`;
+  }
+
+  // Get alternative URLs for fallback
+  getAlternativeUrls(hash: string): string[] {
+    return IPFS_GATEWAYS.map(gateway => `${gateway}${hash}`);
   }
 
   async getFileInfo(hash: string) {
-    try {
-      // For public gateways, we can't get detailed stats
-      // Return basic info instead
-      return {
-        hash,
-        gateway: IPFS_GATEWAY,
-        url: this.getFileUrl(hash)
-      };
-    } catch (error) {
-      console.error('Error getting file info:', error);
-      throw new Error('Failed to get file information');
-    }
+    return {
+      hash,
+      gateway: IPFS_GATEWAYS[0],
+      url: this.getFileUrl(hash),
+      alternativeUrls: this.getAlternativeUrls(hash)
+    };
   }
 
-  // Method to set Pinata credentials (for development)
-  setPinataCredentials(apiKey: string, secretKey: string) {
-    this.pinataApiKey = apiKey;
-    this.pinataSecretKey = secretKey;
-    localStorage.setItem('pinata_api_key', apiKey);
-    localStorage.setItem('pinata_secret_key', secretKey);
-    console.log('Pinata credentials updated');
-  }
-
-  // Method to check if Pinata is configured
-  isPinataConfigured(): boolean {
-    return !!(this.pinataApiKey && this.pinataSecretKey);
+  // Check if a hash is a valid IPFS CID (starts with Qm or bafy)
+  isValidIPFSHash(hash: string): boolean {
+    return hash.startsWith('Qm') && hash.length === 46 || 
+           hash.startsWith('bafy') && hash.length >= 59;
   }
 }
 
