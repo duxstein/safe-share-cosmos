@@ -60,6 +60,18 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## IPFS Configuration
+
+This project uses IPFS (InterPlanetary File System) for decentralized file storage via Pinata. **IPFS must be configured before file uploads will work.**
+
+See [IPFS_SETUP.md](./IPFS_SETUP.md) for detailed setup instructions.
+
+**Quick Setup:**
+1. Get Pinata API keys from [Pinata Cloud](https://app.pinata.cloud/)
+2. Add `PINATA_API_KEY` and `PINATA_SECRET_KEY` to your Supabase project secrets
+3. Deploy the `ipfs-upload` edge function
+4. Verify configuration in the app's IPFS Settings section
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/3b6402b7-e93f-4e73-8a50-96b633ae881b) and click on Share -> Publish.

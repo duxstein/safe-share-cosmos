@@ -117,7 +117,7 @@ const FILE_SHARING_ABI = [
 ];
 
 // Contract address - you'll need to deploy the contract and update this
-const CONTRACT_ADDRESS = '0x742d35Cc6634C0532925a3b8D7389Cd64E6b1A8D';
+const CONTRACT_ADDRESS = '0x7CE5863E0Cc31dc7FE4A3A18a5191653515D1304';
 
 export interface FilePermission {
   fileHash: string;
