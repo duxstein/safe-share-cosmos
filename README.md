@@ -1,85 +1,73 @@
-# Welcome to your Lovable project
+BlockVault
 
-## Project info
+A decentralized, permission-driven file sharing platform — combining IPFS for distributed storage and Ethereum smart contracts for cryptographic access control. BlockVault delivers tamper-resistant, auditable, and permissioned file sharing with a modern Web3 UX.
 
-**URL**: https://lovable.dev/projects/3b6402b7-e93f-4e73-8a50-96b633ae881b
+✨ Highlights
 
-## How can I edit this code?
+Decentralized storage (IPFS) — content-addressed, redundant, and censorship resistant
 
-There are several ways of editing your application.
+On-chain access control — grant/revoke via Ethereum smart contracts
 
-**Use Lovable**
+Wallet authentication — MetaMask (EIP-191 / EIP-712)
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/3b6402b7-e93f-4e73-8a50-96b633ae881b) and start prompting.
+Auditability — immutable transaction logs and event indexing
 
-Changes made via Lovable will be committed automatically to this repo.
+Operational resilience — pinning provider failover, background workers, cache invalidation
 
-**Use your preferred IDE**
+🧭 Table of contents
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+Quick Overview
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+Architecture
 
-Follow these steps:
+Features
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+Getting Started
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+Local Development
 
-# Step 3: Install the necessary dependencies.
-npm i
+Smart Contracts
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+Testing
 
-**Edit a file directly in GitHub**
+Environment Variables
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Contributing
 
-**Use GitHub Codespaces**
+License & Credits
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+🔎 Quick Overview
 
-## What technologies are used for this project?
+BlockVault is built for teams and researchers who need secure, auditable file sharing without centralized trust. Files are stored on IPFS and referenced by content identifiers (CIDs). Access is enforced on-chain, so owners can grant or revoke access to specific Ethereum addresses. The backend indexes on-chain events, manages pinning jobs, and provides authenticated APIs for the UI.
 
-This project is built with:
+🏗 Architecture
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+Frontend: React (TypeScript), Tailwind CSS, Ethers.js — wallet auth, upload UI, access management
 
-## IPFS Configuration
+Backend: Node.js (TypeScript), Express/Fastify — IPFS adapters, pinning queue, indexer, ACL logic
 
-This project uses IPFS (InterPlanetary File System) for decentralized file storage via Pinata. **IPFS must be configured before file uploads will work.**
+Storage: IPFS (Web3.Storage / Pinata) + optional self-hosted IPFS cluster
 
-See [IPFS_SETUP.md](./IPFS_SETUP.md) for detailed setup instructions.
+Blockchain: Solidity contracts on Ethereum (testnets for dev) — File registry + ACL events
 
-**Quick Setup:**
-1. Get Pinata API keys from [Pinata Cloud](https://app.pinata.cloud/)
-2. Add `PINATA_API_KEY` and `PINATA_SECRET_KEY` to your Supabase project secrets
-3. Deploy the `ipfs-upload` edge function
-4. Verify configuration in the app's IPFS Settings section
+DB & Cache: PostgreSQL (metadata, logs), Redis (cache, queues)
 
-## How can I deploy this project?
+Workers: Background workers (BullMQ/RabbitMQ) for pin jobs, retries, and index processing
 
-Simply open [Lovable](https://lovable.dev/projects/3b6402b7-e93f-4e73-8a50-96b633ae881b) and click on Share -> Publish.
+✨ Features
 
-## Can I connect a custom domain to my Lovable project?
+Wallet-based sign-in (MetaMask)
 
-Yes, you can!
+Upload & pin files to IPFS (client or server mediated)
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+On-chain registration of file metadata (CID, owner, size, timestamp)
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+Grant / revoke access (whitelist / blacklist semantics)
+
+Group & organization management (bulk sharing)
+
+Audit logs with tx hashes and timestamps
+
+Optional client-side encryption (CEK per recipient)
+
+Relayer support for batched on-chain operations (optional, HSM/KMS required)
