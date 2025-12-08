@@ -5,7 +5,8 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Web3Provider } from '@/contexts/Web3Context';
 import { AuthProvider } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import Index from '@/pages/Index';
+import Landing from '@/pages/Landing';
+import Dashboard from '@/pages/Dashboard';
 import Auth from '@/pages/Auth';
 import NotFound from '@/pages/NotFound';
 
@@ -16,12 +17,13 @@ function App() {
         <Router>
           <div className="min-h-screen bg-background">
             <Routes>
+              <Route path="/" element={<Landing />} />
               <Route path="/auth" element={<Auth />} />
               <Route
-                path="/"
+                path="/dashboard"
                 element={
                   <ProtectedRoute>
-                    <Index />
+                    <Dashboard />
                   </ProtectedRoute>
                 }
               />
