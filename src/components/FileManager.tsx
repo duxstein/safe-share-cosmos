@@ -247,20 +247,30 @@ const FileManager: React.FC<FileManagerProps> = ({ files, onFileRegistered, view
       link.target = '_blank';
       link.click();
 
-      // Log access history
+      // Log access history and update analytics
       const { data: dbFile } = await supabase
         .from('files')
         .select('id')
         .eq('ipfs_cid', file.hash)
         .maybeSingle();
 
-      if (dbFile && account) {
+      if (dbFile) {
         const { data: user } = await supabase.auth.getUser();
-        await supabase.from('file_access_history').insert({
+        
+        // Log to access history
+        if (account) {
+          await supabase.from('file_access_history').insert({
+            file_id: dbFile.id,
+            user_address: account.toLowerCase(),
+            user_id: user.user?.id,
+            access_type: 'download',
+          });
+        }
+        
+        // Log to file_downloads (triggers update_download_count)
+        await supabase.from('file_downloads').insert({
           file_id: dbFile.id,
-          user_address: account.toLowerCase(),
           user_id: user.user?.id,
-          access_type: 'download',
         });
       }
 
@@ -297,16 +307,18 @@ const FileManager: React.FC<FileManagerProps> = ({ files, onFileRegistered, view
       return;
     }
 
-    // Log access history
-    if (account) {
-      const { data: dbFile } = await supabase
-        .from('files')
-        .select('id')
-        .eq('ipfs_cid', file.hash)
-        .maybeSingle();
+    // Log access history and update analytics
+    const { data: dbFile } = await supabase
+      .from('files')
+      .select('id')
+      .eq('ipfs_cid', file.hash)
+      .maybeSingle();
 
-      if (dbFile) {
-        const { data: user } = await supabase.auth.getUser();
+    if (dbFile) {
+      const { data: user } = await supabase.auth.getUser();
+      
+      // Log to access history
+      if (account) {
         await supabase.from('file_access_history').insert({
           file_id: dbFile.id,
           user_address: account.toLowerCase(),
@@ -314,6 +326,15 @@ const FileManager: React.FC<FileManagerProps> = ({ files, onFileRegistered, view
           access_type: 'view',
         });
       }
+      
+      // Update view count in file_analytics
+      await supabase.rpc('increment_view_count', { p_file_id: dbFile.id }).catch(() => {
+        // Fallback: direct update if RPC doesn't exist
+        supabase
+          .from('file_analytics')
+          .update({ view_count: supabase.rpc('coalesce', { val: 'view_count', default: 0 }) })
+          .eq('file_id', dbFile.id);
+      });
     }
 
     const url = ipfsService.getFileUrl(file.hash);
