@@ -328,13 +328,7 @@ const FileManager: React.FC<FileManagerProps> = ({ files, onFileRegistered, view
       }
       
       // Update view count in file_analytics
-      await supabase.rpc('increment_view_count', { p_file_id: dbFile.id }).catch(() => {
-        // Fallback: direct update if RPC doesn't exist
-        supabase
-          .from('file_analytics')
-          .update({ view_count: supabase.rpc('coalesce', { val: 'view_count', default: 0 }) })
-          .eq('file_id', dbFile.id);
-      });
+      await (supabase.rpc as any)('increment_view_count', { p_file_id: dbFile.id });
     }
 
     const url = ipfsService.getFileUrl(file.hash);
